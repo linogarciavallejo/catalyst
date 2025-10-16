@@ -1,0 +1,6 @@
+@Catalyst.WebApi_HostAddress = http://localhost:5223
+
+GET {{Catalyst.WebApi_HostAddress}}/weatherforecast/
+Accept: application/json
+
+###
