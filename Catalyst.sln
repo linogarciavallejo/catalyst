@@ -17,6 +17,8 @@ Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Catalyst.Application.Tests"
 EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Catalyst.Infrastructure.Tests", "Catalyst.Infrastructure.Tests\Catalyst.Infrastructure.Tests.csproj", "{10C30736-2FF3-456E-ABA3-3053B415EC7F}"
 EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Catalyst.WebApi.Tests", "Catalyst.WebApi.Tests\Catalyst.WebApi.Tests.csproj", "{A1B2C3D4-E5F6-4A5B-8C7D-9E0F1A2B3C4D}"
+EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
 		Debug|Any CPU = Debug|Any CPU
@@ -111,6 +113,18 @@ Global
 		{10C30736-2FF3-456E-ABA3-3053B415EC7F}.Release|x64.Build.0 = Release|Any CPU
 		{10C30736-2FF3-456E-ABA3-3053B415EC7F}.Release|x86.ActiveCfg = Release|Any CPU
 		{10C30736-2FF3-456E-ABA3-3053B415EC7F}.Release|x86.Build.0 = Release|Any CPU
+		{A1B2C3D4-E5F6-4A5B-8C7D-9E0F1A2B3C4D}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{A1B2C3D4-E5F6-4A5B-8C7D-9E0F1A2B3C4D}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{A1B2C3D4-E5F6-4A5B-8C7D-9E0F1A2B3C4D}.Debug|x64.ActiveCfg = Debug|Any CPU
+		{A1B2C3D4-E5F6-4A5B-8C7D-9E0F1A2B3C4D}.Debug|x64.Build.0 = Debug|Any CPU
+		{A1B2C3D4-E5F6-4A5B-8C7D-9E0F1A2B3C4D}.Debug|x86.ActiveCfg = Debug|Any CPU
+		{A1B2C3D4-E5F6-4A5B-8C7D-9E0F1A2B3C4D}.Debug|x86.Build.0 = Debug|Any CPU
+		{A1B2C3D4-E5F6-4A5B-8C7D-9E0F1A2B3C4D}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{A1B2C3D4-E5F6-4A5B-8C7D-9E0F1A2B3C4D}.Release|Any CPU.Build.0 = Release|Any CPU
+		{A1B2C3D4-E5F6-4A5B-8C7D-9E0F1A2B3C4D}.Release|x64.ActiveCfg = Release|Any CPU
+		{A1B2C3D4-E5F6-4A5B-8C7D-9E0F1A2B3C4D}.Release|x64.Build.0 = Release|Any CPU
+		{A1B2C3D4-E5F6-4A5B-8C7D-9E0F1A2B3C4D}.Release|x86.ActiveCfg = Release|Any CPU
+		{A1B2C3D4-E5F6-4A5B-8C7D-9E0F1A2B3C4D}.Release|x86.Build.0 = Release|Any CPU
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE
