@@ -1,5 +1,6 @@
-import { useState, useCallback } from "react";
+import { useState, useCallback, useEffect } from "react";
 import { IdeasService } from "../services";
+import { IdeasHub } from "../services/signalr/hubs/ideasHub";
 import type { Idea, CreateIdeaRequest, IdeaFilters } from "../types";
 
 export interface UseIdeasReturn {
@@ -34,6 +35,65 @@ export const useIdeas = (): UseIdeasReturn => {
   const [ideaCreatedListeners, setIdeaCreatedListeners] = useState<
     Array<(idea: Idea) => void>
   >([]);
+
+  // Set up real-time listeners from SignalR
+  useEffect(() => {
+    const ideasHub = new IdeasHub();
+    
+    // Connect to SignalR hub
+    ideasHub.connect().catch((err) => {
+      console.error("Failed to connect to IdeasHub:", err);
+    });
+
+    // Listen for new ideas created by other users
+    ideasHub.onIdeaCreated((newIdea: Idea) => {
+      // Add to ideas list if not already there (avoid duplicates with optimistic creates)
+      setIdeas((prev) => {
+        const exists = prev.some((idea) => idea.id === newIdea.id);
+        if (exists) return prev;
+        return [newIdea, ...prev];
+      });
+
+      // Notify local listeners
+      ideaCreatedListeners.forEach((listener) => listener(newIdea));
+    });
+
+    // Listen for vote updates from other users
+    ideasHub.onVoteUpdated((ideaId: string, upvotes: number, downvotes: number) => {
+      setIdeas((prev) =>
+        prev.map((idea) =>
+          idea.id === ideaId ? { ...idea, upvotes, downvotes } : idea
+        )
+      );
+    });
+
+    // Listen for comment count updates
+    ideasHub.onCommentCountUpdated((ideaId: string, commentCount: number) => {
+      setIdeas((prev) =>
+        prev.map((idea) =>
+          idea.id === ideaId ? { ...idea, commentCount } : idea
+        )
+      );
+    });
+
+    // Listen for idea status updates
+    ideasHub.onIdeaStatusUpdated((ideaId: string, status: string) => {
+      setIdeas((prev) =>
+        prev.map((idea) =>
+          idea.id === ideaId 
+            ? { ...idea, status: status as "Submitted" | "UnderReview" | "Approved" | "InProgress" | "Completed" | "Rejected" | "OnHold" } 
+            : idea
+        )
+      );
+    });
+
+    // Cleanup on unmount
+    return () => {
+      ideasHub.disconnect().catch((err) => {
+        console.error("Failed to disconnect from IdeasHub:", err);
+      });
+    };
+  }, [ideaCreatedListeners]);
 
   const getIdeas = useCallback(async (_filters?: IdeaFilters) => {
     setIsLoading(true);

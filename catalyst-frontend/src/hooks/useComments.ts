@@ -1,5 +1,6 @@
-import { useState, useCallback } from "react";
+import { useState, useCallback, useEffect } from "react";
 import { commentsService } from "../services/api/comments";
+import { CommentsHub } from "../services/signalr/hubs/commentsHub";
 import type { Comment, CreateCommentRequest } from "../types";
 
 export interface UseCommentsReturn {
@@ -21,6 +22,49 @@ export const useComments = (): UseCommentsReturn => {
   const [pendingComments, setPendingComments] = useState<Comment[]>([]);
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+
+  // Set up real-time listeners from SignalR
+  useEffect(() => {
+    const commentsHub = new CommentsHub();
+    
+    // Connect to SignalR hub
+    commentsHub.connect().catch((err) => {
+      console.error("Failed to connect to CommentsHub:", err);
+    });
+
+    // Listen for new comments added by other users
+    commentsHub.onCommentAdded((newComment: Comment) => {
+      // Add to comments list if not already there (avoid duplicates with optimistic adds)
+      setComments((prev) => {
+        const exists = prev.some((comment) => comment.id === newComment.id);
+        if (exists) return prev;
+        return [newComment, ...prev];
+      });
+    });
+
+    // Listen for comment updates
+    commentsHub.onCommentUpdated((updatedComment: Comment) => {
+      setComments((prev) =>
+        prev.map((comment) =>
+          comment.id === updatedComment.id ? updatedComment : comment
+        )
+      );
+    });
+
+    // Listen for comment deletions
+    commentsHub.onCommentDeleted((commentId: string) => {
+      setComments((prev) =>
+        prev.filter((comment) => comment.id !== commentId)
+      );
+    });
+
+    // Cleanup on unmount
+    return () => {
+      commentsHub.disconnect().catch((err) => {
+        console.error("Failed to disconnect from CommentsHub:", err);
+      });
+    };
+  }, []);
 
   const getComments = useCallback(async (ideaId: string) => {
     setIsLoading(true);

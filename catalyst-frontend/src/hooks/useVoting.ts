@@ -1,5 +1,6 @@
-import { useState, useCallback } from "react";
+import { useState, useCallback, useEffect } from "react";
 import { VotesService } from "../services";
+import { VotesHub } from "../services/signalr/hubs/votesHub";
 import type { Vote, VoteType } from "../types";
 
 export interface UseVotingReturn {
@@ -19,6 +20,46 @@ export const useVoting = (): UseVotingReturn => {
   const [pendingVotes, setPendingVotes] = useState<Record<string, VoteType>>({});
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+
+  // Set up real-time listeners from SignalR
+  useEffect(() => {
+    const votesHub = new VotesHub();
+    
+    // Connect to SignalR hub
+    votesHub.connect().catch((err) => {
+      console.error("Failed to connect to VotesHub:", err);
+    });
+
+    // Listen for vote updates from other users
+    votesHub.onVoteUpdated((ideaId: string, upvotes: number, downvotes: number) => {
+      // Update vote counts in real-time (but don't change user's own vote)
+      setVotes((prev) => {
+        // Only update if we don't have this vote pending (to avoid conflicting with optimistic updates)
+        if (!(ideaId in pendingVotes)) {
+          const currentVote = prev[ideaId];
+          if (currentVote) {
+            // Update but preserve the vote type
+            return {
+              ...prev,
+              [ideaId]: {
+                ...currentVote,
+                upvoteCount: upvotes,
+                downvoteCount: downvotes,
+              },
+            };
+          }
+        }
+        return prev;
+      });
+    });
+
+    // Cleanup on unmount
+    return () => {
+      votesHub.disconnect().catch((err) => {
+        console.error("Failed to disconnect from VotesHub:", err);
+      });
+    };
+  }, [pendingVotes]);
 
   const submitVote = useCallback(
     async (ideaId: string, voteType: VoteType) => {
