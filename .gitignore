@@ -80,3 +80,7 @@ packages/
 *.tmp
 *.temp
 .cache/
+
+# Documentation (local/generated)
+Documentation/
+
