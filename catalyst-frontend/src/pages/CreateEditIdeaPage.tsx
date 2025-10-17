@@ -1,7 +1,8 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useParams, useNavigate, Link } from 'react-router-dom';
 import { Button, Input } from '@/components/ui';
 import { Header, Footer } from '@/components/Layout';
+import { useIdeas } from '@/hooks';
 
 /**
  * CreateEditIdeaPage Component
@@ -16,18 +17,44 @@ import { Header, Footer } from '@/components/Layout';
 const CreateEditIdeaPage: React.FC = () => {
   const { ideaId } = useParams<{ ideaId: string }>();
   const navigate = useNavigate();
+  const { getIdeaById: loadIdea, createIdea, updateIdea } = useIdeas();
   const isEdit = !!ideaId;
 
   const [formData, setFormData] = useState({
-    title: isEdit ? 'Implement dark mode UI' : '',
-    description: isEdit
-      ? 'Add comprehensive dark mode support...'
-      : '',
-    category: isEdit ? 'Feature' : '',
+    title: '',
+    description: '',
+    category: '',
   });
 
   const [preview, setPreview] = useState(false);
   const [loading, setLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  // Load existing idea if editing
+  useEffect(() => {
+    const loadExistingIdea = async () => {
+      if (!isEdit || !ideaId) return;
+
+      try {
+        setLoading(true);
+        const idea = await loadIdea(ideaId);
+        if (idea) {
+          setFormData({
+            title: idea.title,
+            description: idea.description,
+            category: idea.category,
+          });
+        }
+      } catch (err) {
+        console.error('Failed to load idea:', err);
+        setError('Failed to load idea');
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    loadExistingIdea();
+  }, [ideaId, isEdit, loadIdea]);
 
   const categories = [
     'Feature',
@@ -51,37 +78,42 @@ const CreateEditIdeaPage: React.FC = () => {
     e.preventDefault();
 
     if (!formData.title.trim()) {
-      alert('Please enter a title');
+      setError('Please enter a title');
       return;
     }
 
     if (!formData.description.trim()) {
-      alert('Please enter a description');
+      setError('Please enter a description');
       return;
     }
 
     if (!formData.category) {
-      alert('Please select a category');
+      setError('Please select a category');
       return;
     }
 
     setLoading(true);
-    try {
-      // Simulate API call
-      await new Promise((resolve) => setTimeout(resolve, 1000));
+    setError(null);
 
-      if (isEdit) {
-        console.log('Idea updated:', formData);
-        alert('Idea updated successfully!');
+    try {
+      if (isEdit && ideaId) {
+        await updateIdea(ideaId, {
+          title: formData.title,
+          description: formData.description,
+          category: formData.category,
+        });
       } else {
-        console.log('Idea created:', formData);
-        alert('Idea created successfully!');
+        await createIdea({
+          title: formData.title,
+          description: formData.description,
+          category: formData.category,
+        });
       }
 
       navigate('/ideas');
-    } catch (error) {
-      console.error('Error saving idea:', error);
-      alert('Failed to save idea');
+    } catch (err) {
+      console.error('Error saving idea:', err);
+      setError(err instanceof Error ? err.message : 'Failed to save idea');
     } finally {
       setLoading(false);
     }
@@ -119,6 +151,12 @@ const CreateEditIdeaPage: React.FC = () => {
         {/* Form */}
         <form onSubmit={handleSubmit} className="space-y-6">
           <div className="bg-white rounded-lg p-8 shadow-sm space-y-6">
+            {/* Error Message */}
+            {error && (
+              <div className="p-4 bg-red-100 border border-red-300 rounded-lg text-red-800">
+                {error}
+              </div>
+            )}
             {/* Title */}
             <div>
               <label

@@ -1,19 +1,60 @@
-import React from 'react';
+import React, { useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { Button } from '@/components/ui';
 import { Header, Footer } from '@/components/Layout';
 import { Card, CardBody } from '@/components/ui';
+import { useIdeas } from '../hooks';
+import type { Idea } from '@/types';
+
+interface StatsData {
+  totalIdeas: number;
+  approvedIdeas: number;
+  discussionCount: number;
+}
 
 /**
  * HomePage Component
  * Landing page / dashboard for the application.
  * Features:
  * - Hero section with call to action
- * - Quick stats overview
- * - Featured ideas carousel
+ * - Real stats overview loaded from backend
+ * - Featured/trending ideas carousel
  * - Navigation links
  */
 const HomePage: React.FC = () => {
+  const { ideas, getTrendingIdeas } = useIdeas();
+  const [stats, setStats] = useState<StatsData>({
+    totalIdeas: 0,
+    approvedIdeas: 0,
+    discussionCount: 0,
+  });
+
+  // Load trending ideas on mount
+  useEffect(() => {
+    const loadTrendingIdeas = async () => {
+      try {
+        await getTrendingIdeas(6);
+      } catch (err) {
+        console.error('Failed to load trending ideas:', err);
+      }
+    };
+
+    loadTrendingIdeas();
+  }, [getTrendingIdeas]);
+
+  // Update stats based on loaded ideas
+  useEffect(() => {
+    if (ideas.length > 0) {
+      const approved = ideas.filter((idea: Idea) => idea.status === 'Approved').length;
+      const totalComments = ideas.reduce((sum: number, idea: Idea) => sum + idea.commentCount, 0);
+
+      setStats({
+        totalIdeas: ideas.length,
+        approvedIdeas: approved,
+        discussionCount: totalComments,
+      });
+    }
+  }, [ideas]);
   return (
     <div className="min-h-screen flex flex-col bg-gray-50">
       {/* Header */}
@@ -65,7 +106,7 @@ const HomePage: React.FC = () => {
           <Card>
             <CardBody>
               <div className="text-center">
-                <p className="text-4xl font-bold text-blue-600">1,234</p>
+                <p className="text-4xl font-bold text-blue-600">{stats.totalIdeas}</p>
                 <p className="text-gray-600 mt-2">Ideas Submitted</p>
               </div>
             </CardBody>
@@ -73,7 +114,7 @@ const HomePage: React.FC = () => {
           <Card>
             <CardBody>
               <div className="text-center">
-                <p className="text-4xl font-bold text-green-600">5,678</p>
+                <p className="text-4xl font-bold text-green-600">{stats.discussionCount}</p>
                 <p className="text-gray-600 mt-2">Active Discussions</p>
               </div>
             </CardBody>
@@ -81,7 +122,7 @@ const HomePage: React.FC = () => {
           <Card>
             <CardBody>
               <div className="text-center">
-                <p className="text-4xl font-bold text-purple-600">890</p>
+                <p className="text-4xl font-bold text-purple-600">{stats.approvedIdeas}</p>
                 <p className="text-gray-600 mt-2">Approved Ideas</p>
               </div>
             </CardBody>

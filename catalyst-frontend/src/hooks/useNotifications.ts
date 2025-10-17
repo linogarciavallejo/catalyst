@@ -1,5 +1,5 @@
-import { useState, useCallback } from "react";
-import { notificationsHub } from "../services/signalr/hubs/notificationsHub";
+import { useState, useCallback, useRef } from "react";
+import { NotificationsService, AuthService } from "../services";
 import type { Notification } from "../types";
 
 export interface UseNotificationsReturn {
@@ -21,61 +21,47 @@ export const useNotifications = (): UseNotificationsReturn => {
   const [isConnected, setIsConnected] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  
+  // Store callbacks for cleanup
+  const callbacksRef = useRef<Map<string, (data?: unknown) => void>>(new Map());
 
   const connect = useCallback(async () => {
     setIsLoading(true);
     setError(null);
 
     try {
-      await notificationsHub.connect();
+      const user = await AuthService.getCurrentUser();
+      const token = AuthService.getToken();
+      
+      if (!user || !token) {
+        throw new Error("User not authenticated");
+      }
+
+      await NotificationsService.connect(user.id, token);
       setIsConnected(true);
 
-      // Listen for notifications
-      notificationsHub.onNotificationReceived((notification: Notification) => {
-        setNotifications((prev) => [notification, ...prev]);
-      });
+      // Define and store callbacks
+      const onNotificationReceived = (data: unknown) => {
+        setNotifications((prev) => [data as Notification, ...prev]);
+      };
 
-      // Listen for idea voted
-      notificationsHub.onIdeaVoted((ideaId: string, userId: string, voteType: string) => {
-        const message = `User ${userId} ${voteType}d your idea`;
-        const notification: Notification = {
-          id: `vote_${ideaId}_${userId}`,
-          userId,
-          message,
-          type: "IdeaVoted",
-          isRead: false,
-          createdAt: new Date(),
-        };
-        setNotifications((prev) => [notification, ...prev]);
-      });
+      const onConnected = () => {
+        setIsConnected(true);
+      };
 
-      // Listen for idea commented
-      notificationsHub.onIdeaCommented((ideaId: string, commenterId: string) => {
-        const message = `User ${commenterId} commented on your idea`;
-        const notification: Notification = {
-          id: `comment_${ideaId}_${commenterId}`,
-          userId: commenterId,
-          message,
-          type: "IdeaCommented",
-          isRead: false,
-          createdAt: new Date(),
-        };
-        setNotifications((prev) => [notification, ...prev]);
-      });
+      const onDisconnected = () => {
+        setIsConnected(false);
+      };
 
-      // Listen for idea updated
-      notificationsHub.onIdeaUpdated((ideaId: string, status: string) => {
-        const message = `Your idea status changed to ${status}`;
-        const notification: Notification = {
-          id: `status_${ideaId}`,
-          userId: "",
-          message,
-          type: "IdeaUpdated",
-          isRead: false,
-          createdAt: new Date(),
-        };
-        setNotifications((prev) => [notification, ...prev]);
-      });
+      // Store callbacks for cleanup
+      callbacksRef.current.set('notificationReceived', onNotificationReceived);
+      callbacksRef.current.set('connected', onConnected);
+      callbacksRef.current.set('disconnected', onDisconnected);
+
+      // Listen for events
+      NotificationsService.on('notificationReceived', onNotificationReceived);
+      NotificationsService.on('connected', onConnected);
+      NotificationsService.on('disconnected', onDisconnected);
     } catch (err) {
       const errorMessage =
         err instanceof Error
@@ -90,11 +76,18 @@ export const useNotifications = (): UseNotificationsReturn => {
 
   const disconnect = useCallback(async () => {
     try {
-      notificationsHub.offNotificationReceived();
-      notificationsHub.offIdeaVoted();
-      notificationsHub.offIdeaCommented();
-      notificationsHub.offIdeaUpdated();
-      await notificationsHub.disconnect();
+      // Unregister stored callbacks
+      const onNotificationReceived = callbacksRef.current.get('notificationReceived');
+      const onConnected = callbacksRef.current.get('connected');
+      const onDisconnected = callbacksRef.current.get('disconnected');
+
+      if (onNotificationReceived) NotificationsService.off('notificationReceived', onNotificationReceived);
+      if (onConnected) NotificationsService.off('connected', onConnected);
+      if (onDisconnected) NotificationsService.off('disconnected', onDisconnected);
+
+      callbacksRef.current.clear();
+      
+      await NotificationsService.disconnect();
       setIsConnected(false);
     } catch (err) {
       const errorMessage =
@@ -109,7 +102,7 @@ export const useNotifications = (): UseNotificationsReturn => {
     setError(null);
 
     try {
-      await notificationsHub.markNotificationAsRead(notificationId);
+      await NotificationsService.markAsRead(notificationId);
       setNotifications((prev) =>
         prev.map((n) =>
           n.id === notificationId ? { ...n, isRead: true } : n
@@ -127,7 +120,9 @@ export const useNotifications = (): UseNotificationsReturn => {
     setError(null);
 
     try {
-      await notificationsHub.markAllNotificationsAsRead();
+      // Mark each unread notification individually or call a batch API
+      const unreadIds = notifications.filter((n) => !n.isRead).map((n) => n.id);
+      await Promise.all(unreadIds.map((id) => NotificationsService.markAsRead(id)));
       setNotifications((prev) => prev.map((n) => ({ ...n, isRead: true })));
     } catch (err) {
       const errorMessage =
@@ -135,7 +130,7 @@ export const useNotifications = (): UseNotificationsReturn => {
       setError(errorMessage);
       throw err;
     }
-  }, []);
+  }, [notifications]);
 
   const unreadCount = notifications.filter((n) => !n.isRead).length;
 

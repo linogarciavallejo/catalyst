@@ -1,7 +1,8 @@
-import React, { useState } from 'react';
-import { Link } from 'react-router-dom';
+import React, { useState, useEffect } from 'react';
+import { Link, useNavigate } from 'react-router-dom';
 import { Button } from '@/components/ui';
 import { Header, Footer } from '@/components/Layout';
+import { useAuth } from '@/hooks';
 
 /**
  * SettingsPage Component
@@ -13,10 +14,13 @@ import { Header, Footer } from '@/components/Layout';
  * - Theme preferences
  */
 const SettingsPage: React.FC = () => {
+  const { user, logout } = useAuth();
+  const navigate = useNavigate();
+
   const [settings, setSettings] = useState({
-    displayName: 'John Doe',
-    email: 'john@example.com',
-    bio: 'Passionate about innovation',
+    displayName: '',
+    email: '',
+    bio: '',
     language: 'en',
     theme: 'light',
     emailNotifications: true,
@@ -27,6 +31,17 @@ const SettingsPage: React.FC = () => {
   });
 
   const [saved, setSaved] = useState(false);
+
+  // Load user data on mount
+  useEffect(() => {
+    if (user) {
+      setSettings((prev) => ({
+        ...prev,
+        displayName: user.displayName || '',
+        email: user.email || '',
+      }));
+    }
+  }, [user]);
 
   const handleChange = (
     e: React.ChangeEvent<
@@ -45,14 +60,21 @@ const SettingsPage: React.FC = () => {
 
   const handleSave = async () => {
     try {
-      // Simulate API call
-      await new Promise((resolve) => setTimeout(resolve, 1000));
+      // Save settings (note: would need an updateSettings endpoint)
       setSaved(true);
       setTimeout(() => setSaved(false), 3000);
       console.log('Settings saved:', settings);
-    } catch (error) {
-      console.error('Failed to save settings:', error);
-      alert('Failed to save settings');
+    } catch (err) {
+      console.error('Failed to save settings:', err);
+    }
+  };
+
+  const handleLogout = async () => {
+    try {
+      await logout();
+      navigate('/login');
+    } catch (err) {
+      console.error('Failed to logout:', err);
     }
   };
 
@@ -270,19 +292,29 @@ const SettingsPage: React.FC = () => {
           </section>
 
           {/* Action Buttons */}
-          <div className="flex gap-3 justify-end pt-6 border-t border-gray-200">
-            <Link to="/">
-              <Button variant="outline" size="md">
-                Cancel
-              </Button>
-            </Link>
+          <div className="flex gap-3 justify-between pt-6 border-t border-gray-200">
             <Button
-              variant="primary"
+              variant="outline"
               size="md"
-              onClick={handleSave}
+              onClick={handleLogout}
+              className="text-red-600 hover:text-red-700"
             >
-              Save Settings
+              Logout
             </Button>
+            <div className="flex gap-3">
+              <Link to="/">
+                <Button variant="outline" size="md">
+                  Cancel
+                </Button>
+              </Link>
+              <Button
+                variant="primary"
+                size="md"
+                onClick={handleSave}
+              >
+                Save Settings
+              </Button>
+            </div>
           </div>
         </div>
       </main>

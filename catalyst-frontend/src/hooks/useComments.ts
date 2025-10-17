@@ -4,6 +4,7 @@ import type { Comment, CreateCommentRequest } from "../types";
 
 export interface UseCommentsReturn {
   comments: Comment[];
+  pendingComments: Comment[]; // Track optimistic comments
   isLoading: boolean;
   error: string | null;
   getComments: (ideaId: string) => Promise<void>;
@@ -11,11 +12,13 @@ export interface UseCommentsReturn {
   updateComment: (id: string, content: string) => Promise<Comment>;
   deleteComment: (id: string) => Promise<void>;
   getCommentCount: (ideaId: string) => Promise<number>;
+  isPending: (commentId: string) => boolean;
   clearError: () => void;
 }
 
 export const useComments = (): UseCommentsReturn => {
   const [comments, setComments] = useState<Comment[]>([]);
+  const [pendingComments, setPendingComments] = useState<Comment[]>([]);
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -37,20 +40,47 @@ export const useComments = (): UseCommentsReturn => {
 
   const addComment = useCallback(
     async (request: CreateCommentRequest): Promise<Comment> => {
-      setIsLoading(true);
       setError(null);
+
+      // Create optimistic comment
+      const optimisticComment: Comment = {
+        id: `pending-${Date.now()}`,
+        ideaId: request.ideaId,
+        authorId: '', // Will be filled by server
+        author: {
+          id: '',
+          displayName: 'You',
+          email: '',
+          role: 'Creator',
+          eipPoints: 0,
+          createdAt: new Date(),
+        },
+        content: request.content,
+        createdAt: new Date(),
+        updatedAt: new Date(),
+      };
+
+      // Show optimistic comment immediately
+      setPendingComments((prev) => [...prev, optimisticComment]);
 
       try {
         const newComment = await commentsService.addComment(request);
+        // Add real comment
         setComments((prev) => [...prev, newComment]);
+        // Remove optimistic comment
+        setPendingComments((prev) =>
+          prev.filter((c) => c.id !== optimisticComment.id)
+        );
         return newComment;
       } catch (err) {
         const errorMessage =
           err instanceof Error ? err.message : "Failed to add comment";
         setError(errorMessage);
+        // Remove optimistic comment on error
+        setPendingComments((prev) =>
+          prev.filter((c) => c.id !== optimisticComment.id)
+        );
         throw err;
-      } finally {
-        setIsLoading(false);
       }
     },
     []
@@ -86,6 +116,7 @@ export const useComments = (): UseCommentsReturn => {
     try {
       await commentsService.deleteComment(id);
       setComments((prev) => prev.filter((comment) => comment.id !== id));
+      setPendingComments((prev) => prev.filter((comment) => comment.id !== id));
     } catch (err) {
       const errorMessage =
         err instanceof Error ? err.message : "Failed to delete comment";
@@ -110,12 +141,20 @@ export const useComments = (): UseCommentsReturn => {
     []
   );
 
+  const isPending = useCallback(
+    (commentId: string): boolean => {
+      return pendingComments.some((c) => c.id === commentId);
+    },
+    [pendingComments]
+  );
+
   const clearError = useCallback(() => {
     setError(null);
   }, []);
 
   return {
     comments,
+    pendingComments,
     isLoading,
     error,
     getComments,
@@ -123,6 +162,7 @@ export const useComments = (): UseCommentsReturn => {
     updateComment,
     deleteComment,
     getCommentCount,
+    isPending,
     clearError,
   };
 };

@@ -1,4 +1,5 @@
 import React from "react";
+import ConnectionIndicator from "../features/ConnectionIndicator";
 
 interface HeaderProps extends React.HTMLAttributes<HTMLDivElement> {
   logo?: React.ReactNode;
@@ -32,7 +33,10 @@ export const Header: React.FC<HeaderProps> = ({
             {title && <h1 className="text-xl font-semibold text-gray-900">{title}</h1>}
             {children}
           </div>
-          {actions && <div className="flex items-center gap-4">{actions}</div>}
+          <div className="flex items-center gap-4">
+            <ConnectionIndicator />
+            {actions && <div className="flex items-center gap-4">{actions}</div>}
+          </div>
         </div>
       </div>
     </header>

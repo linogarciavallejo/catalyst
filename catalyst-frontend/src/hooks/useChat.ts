@@ -1,5 +1,5 @@
 import { useState, useCallback, useRef } from "react";
-import { chatHub } from "../services/signalr/hubs/chatHub";
+import { ChatService, AuthService } from "../services";
 import type { ChatMessage } from "../types";
 
 export interface UseChatReturn {
@@ -25,49 +25,47 @@ export const useChat = (): UseChatReturn => {
   const [error, setError] = useState<string | null>(null);
   const [activeUsers, setActiveUsers] = useState<string[]>([]);
   const [typingUsers, setTypingUsers] = useState<Set<string>>(new Set());
-  const typingTimeoutRef = useRef<Record<string, ReturnType<typeof setTimeout>>>({});
+  
+  // Store callbacks for cleanup
+  const callbacksRef = useRef<Map<string, (data?: unknown) => void>>(new Map());
 
   const connect = useCallback(async () => {
     setIsLoading(true);
     setError(null);
 
     try {
-      await chatHub.connect();
+      const user = await AuthService.getCurrentUser();
+      const token = AuthService.getToken();
+      
+      if (!user || !token) {
+        throw new Error("User not authenticated");
+      }
+
+      await ChatService.connect(user.id, token);
       setIsConnected(true);
 
-      // Listen for message received
-      chatHub.onMessageReceived((message: ChatMessage) => {
-        setMessages((prev) => [...prev, message]);
-      });
+      // Define and store callbacks
+      const onMessageReceived = (data: unknown) => {
+        setMessages((prev) => [...prev, data as ChatMessage]);
+      };
+      
+      const onConnected = () => {
+        setIsConnected(true);
+      };
+      
+      const onDisconnected = () => {
+        setIsConnected(false);
+      };
 
-      // Listen for user joined
-      chatHub.onUserJoined((_userId: string, userName: string) => {
-        setActiveUsers((prev) => [...new Set([...prev, userName])]);
-      });
+      // Store callbacks for cleanup
+      callbacksRef.current.set('messageReceived', onMessageReceived);
+      callbacksRef.current.set('connected', onConnected);
+      callbacksRef.current.set('disconnected', onDisconnected);
 
-      // Listen for user left
-      chatHub.onUserLeft((_userId: string, userName: string) => {
-        setActiveUsers((prev) => prev.filter((u) => u !== userName));
-      });
-
-      // Listen for typing indicator
-      chatHub.onUserTyping((userId: string) => {
-        setTypingUsers((prev) => new Set([...prev, userId]));
-
-        // Clear typing indicator after 3 seconds
-        if (typingTimeoutRef.current[userId]) {
-          clearTimeout(typingTimeoutRef.current[userId]);
-        }
-
-        typingTimeoutRef.current[userId] = setTimeout(() => {
-          setTypingUsers((prev) => {
-            const updated = new Set(prev);
-            updated.delete(userId);
-            return updated;
-          });
-          delete typingTimeoutRef.current[userId];
-        }, 3000);
-      });
+      // Listen for events
+      ChatService.on('messageReceived', onMessageReceived);
+      ChatService.on('connected', onConnected);
+      ChatService.on('disconnected', onDisconnected);
     } catch (err) {
       const errorMessage =
         err instanceof Error ? err.message : "Failed to connect to chat";
@@ -80,11 +78,18 @@ export const useChat = (): UseChatReturn => {
 
   const disconnect = useCallback(async () => {
     try {
-      chatHub.offMessageReceived();
-      chatHub.offUserJoined();
-      chatHub.offUserLeft();
-      chatHub.offUserTyping();
-      await chatHub.disconnect();
+      // Unregister stored callbacks
+      const onMessageReceived = callbacksRef.current.get('messageReceived');
+      const onConnected = callbacksRef.current.get('connected');
+      const onDisconnected = callbacksRef.current.get('disconnected');
+
+      if (onMessageReceived) ChatService.off('messageReceived', onMessageReceived);
+      if (onConnected) ChatService.off('connected', onConnected);
+      if (onDisconnected) ChatService.off('disconnected', onDisconnected);
+
+      callbacksRef.current.clear();
+      
+      await ChatService.disconnect();
       setIsConnected(false);
       setMessages([]);
       setActiveUsers([]);
@@ -100,7 +105,7 @@ export const useChat = (): UseChatReturn => {
     setError(null);
 
     try {
-      await chatHub.sendMessage(room, content);
+      await ChatService.sendMessage(room, content);
     } catch (err) {
       const errorMessage =
         err instanceof Error ? err.message : "Failed to send message";
@@ -113,7 +118,7 @@ export const useChat = (): UseChatReturn => {
     setError(null);
 
     try {
-      await chatHub.joinRoom(room);
+      await ChatService.joinRoom(room);
     } catch (err) {
       const errorMessage =
         err instanceof Error ? err.message : "Failed to join room";
@@ -126,7 +131,7 @@ export const useChat = (): UseChatReturn => {
     setError(null);
 
     try {
-      await chatHub.leaveRoom(room);
+      await ChatService.leaveRoom(room);
     } catch (err) {
       const errorMessage =
         err instanceof Error ? err.message : "Failed to leave room";

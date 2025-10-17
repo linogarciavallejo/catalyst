@@ -1,28 +1,27 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
 import { Button } from '@/components/ui';
 import { Header, Footer } from '@/components/Layout';
-
-interface Message {
-  id: string;
-  userId: string;
-  displayName: string;
-  content: string;
-  createdAt: Date;
-  room: string;
-}
+import { useChat, useAuth } from '../hooks';
+import type { ChatMessage } from '@/types';
 
 /**
  * ChatPage Component
  * Real-time chat interface for community discussions.
  * Features:
- * - Message display with user avatars
- * - Real-time message sending
- * - Different styling for own vs others' messages
- * - Room selection
+ * - Real-time message display with user info
+ * - Real-time message sending via SignalR
+ * - Room selection and management
+ * - Connection status indicator
+ * - Auto-connect on mount
  */
 const ChatPage: React.FC = () => {
+  const { messages, sendMessage, joinRoom, leaveRoom, connect, disconnect } = useChat();
+  const { user } = useAuth();
+  
   const [selectedRoom, setSelectedRoom] = useState<string>('general');
+  const [newMessage, setNewMessage] = useState('');
+  const [loading, setLoading] = useState(false);
 
   const rooms = [
     { id: 'general', name: 'General' },
@@ -31,52 +30,52 @@ const ChatPage: React.FC = () => {
     { id: 'introductions', name: 'Introductions' },
   ];
 
-  const [messages, setMessages] = useState<Message[]>([
-    {
-      id: 'm1',
-      userId: 'u1',
-      displayName: 'John Doe',
-      content: 'Welcome to the general chat!',
-      createdAt: new Date(Date.now() - 300000),
-      room: 'general',
-    },
-    {
-      id: 'm2',
-      userId: 'u2',
-      displayName: 'Jane Smith',
-      content: 'Happy to be here! Looking forward to discussing ideas.',
-      createdAt: new Date(Date.now() - 250000),
-      room: 'general',
-    },
-  ]);
+  // Connect to chat on mount
+  useEffect(() => {
+    const initializeChat = async () => {
+      try {
+        await connect();
+        // Join default room
+        await joinRoom('general');
+      } catch (err) {
+        console.error('Failed to initialize chat:', err);
+      }
+    };
 
-  const [newMessage, setNewMessage] = useState('');
+    initializeChat();
 
-  const handleSendMessage = async (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!newMessage.trim()) return;
+    return () => {
+      disconnect();
+    };
+  }, [connect, disconnect, joinRoom]);
 
+  // Handle room change
+  const handleRoomChange = async (roomId: string) => {
     try {
-      // Simulate API call
-      await new Promise((resolve) => setTimeout(resolve, 300));
-
-      const msg: Message = {
-        id: `m${Date.now()}`,
-        userId: 'current-user',
-        displayName: 'You',
-        content: newMessage,
-        createdAt: new Date(),
-        room: selectedRoom,
-      };
-
-      setMessages((prev) => [...prev, msg]);
-      setNewMessage('');
-    } catch (error) {
-      console.error('Failed to send message:', error);
+      await leaveRoom(selectedRoom);
+      setSelectedRoom(roomId);
+      await joinRoom(roomId);
+    } catch (err) {
+      console.error('Failed to change room:', err);
     }
   };
 
-  const filteredMessages = messages.filter((m) => m.room === selectedRoom);
+  const handleSendMessage = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!newMessage.trim() || loading) return;
+
+    try {
+      setLoading(true);
+      await sendMessage(selectedRoom, newMessage);
+      setNewMessage('');
+    } catch (err) {
+      console.error('Failed to send message:', err);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const filteredMessages = messages.filter((m: ChatMessage) => m.room === selectedRoom);
 
   return (
     <div className="min-h-screen flex flex-col bg-gray-50">
@@ -114,7 +113,7 @@ const ChatPage: React.FC = () => {
               {rooms.map((room) => (
                 <button
                   key={room.id}
-                  onClick={() => setSelectedRoom(room.id)}
+                  onClick={() => handleRoomChange(room.id)}
                   className={`w-full text-left px-4 py-2 rounded-lg transition-colors ${
                     selectedRoom === room.id
                       ? 'bg-blue-500 text-white'
@@ -141,28 +140,28 @@ const ChatPage: React.FC = () => {
 
             {/* Messages */}
             <div className="flex-1 overflow-y-auto p-4 space-y-4">
-              {filteredMessages.map((msg) => (
+              {filteredMessages.map((msg: ChatMessage) => (
                 <div
                   key={msg.id}
                   className={`flex gap-3 ${
-                    msg.userId === 'current-user' ? 'justify-end' : ''
+                    msg.userId === user?.id ? 'justify-end' : ''
                   }`}
                 >
                   <div
                     className={`max-w-md p-3 rounded-lg ${
-                      msg.userId === 'current-user'
+                      msg.userId === user?.id
                         ? 'bg-blue-500 text-white'
                         : 'bg-gray-200 text-gray-900'
                     }`}
                   >
-                    {msg.userId !== 'current-user' && (
+                    {msg.userId !== user?.id && (
                       <p className="text-sm font-semibold mb-1">
-                        {msg.displayName}
+                        {msg.user?.displayName || 'Anonymous'}
                       </p>
                     )}
                     <p className="text-sm">{msg.content}</p>
                     <p className="text-xs mt-1 opacity-70">
-                      {msg.createdAt.toLocaleTimeString()}
+                      {new Date(msg.createdAt).toLocaleTimeString()}
                     </p>
                   </div>
                 </div>

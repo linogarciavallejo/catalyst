@@ -1,6 +1,6 @@
 import { useState, useCallback, useEffect } from "react";
-import { authService } from "../services/api/auth";
-import type { User, LoginRequest, RegisterRequest, AuthResponse } from "../types";
+import { AuthService } from "../services";
+import type { User, LoginRequest, RegisterRequest } from "../types";
 
 export interface UseAuthReturn {
   user: User | null;
@@ -41,11 +41,11 @@ export const useAuth = (): UseAuthReturn => {
     setError(null);
 
     try {
-      const response: AuthResponse = await authService.login(request);
-      setUser(response.user);
-      setToken(response.token);
-      localStorage.setItem("user", JSON.stringify(response.user));
-      localStorage.setItem("token", response.token);
+      const loginResponse = await AuthService.login(request);
+      setUser(loginResponse.user);
+      setToken(loginResponse.token);
+      localStorage.setItem("user", JSON.stringify(loginResponse.user));
+      localStorage.setItem("token", loginResponse.token);
     } catch (err) {
       const errorMessage =
         err instanceof Error ? err.message : "Login failed";
@@ -61,11 +61,11 @@ export const useAuth = (): UseAuthReturn => {
     setError(null);
 
     try {
-      const response: AuthResponse = await authService.register(request);
-      setUser(response.user);
-      setToken(response.token);
-      localStorage.setItem("user", JSON.stringify(response.user));
-      localStorage.setItem("token", response.token);
+      const registerResponse = await AuthService.register(request);
+      setUser(registerResponse.user);
+      setToken(registerResponse.token);
+      localStorage.setItem("user", JSON.stringify(registerResponse.user));
+      localStorage.setItem("token", registerResponse.token);
     } catch (err) {
       const errorMessage =
         err instanceof Error ? err.message : "Registration failed";
@@ -78,9 +78,11 @@ export const useAuth = (): UseAuthReturn => {
 
   const logout = useCallback(async () => {
     try {
-      await authService.logout();
+      await AuthService.logout();
       setUser(null);
       setToken(null);
+      localStorage.removeItem("user");
+      localStorage.removeItem("token");
     } catch (err) {
       console.error("Logout error:", err);
     }

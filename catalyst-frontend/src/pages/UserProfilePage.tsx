@@ -1,8 +1,9 @@
-import React from 'react';
+import React, { useEffect } from 'react';
 import { useParams, Link } from 'react-router-dom';
 import { Button } from '@/components/ui';
 import { Header, Footer } from '@/components/Layout';
 import { UserProfile } from '@/components/features';
+import { useIdeas } from '@/hooks';
 
 /**
  * UserProfilePage Component
@@ -15,6 +16,7 @@ import { UserProfile } from '@/components/features';
  */
 const UserProfilePage: React.FC = () => {
   const { userId } = useParams<{ userId: string }>();
+  const { ideas, getIdeas } = useIdeas();
 
   const user = {
     id: userId || 'u1',
@@ -28,6 +30,22 @@ const UserProfilePage: React.FC = () => {
     followingCount: 89,
     bio: 'Passionate about innovation and technology. Always looking for ways to improve the world.',
   };
+
+  // Load ideas on mount
+  useEffect(() => {
+    const loadIdeas = async () => {
+      try {
+        await getIdeas();
+      } catch (err) {
+        console.error('Failed to load ideas:', err);
+      }
+    };
+
+    loadIdeas();
+  }, [getIdeas]);
+
+  // Filter ideas by author (in a real app, this would be done server-side)
+  const userIdeasList = ideas.filter(idea => idea.authorId === userId);
 
   return (
     <div className="min-h-screen flex flex-col bg-gray-50">
@@ -100,27 +118,34 @@ const UserProfilePage: React.FC = () => {
               <h2 className="text-xl font-semibold text-gray-900 mb-4">
                 Recent Ideas
               </h2>
-              <div className="space-y-3">
-                {[1, 2, 3].map((idea) => (
-                  <div
-                    key={idea}
-                    className="p-4 border border-gray-200 rounded-lg hover:bg-gray-50 cursor-pointer"
-                  >
-                    <p className="font-medium text-gray-900">
-                      Idea #{idea}
-                    </p>
-                    <p className="text-sm text-gray-600 mt-1">
-                      Brief description of the idea
-                    </p>
-                    <div className="flex justify-between items-center mt-2">
-                      <span className="text-xs text-gray-500">2 days ago</span>
-                      <span className="text-xs bg-green-100 text-green-800 px-2 py-1 rounded">
-                        Approved
-                      </span>
-                    </div>
-                  </div>
-                ))}
-              </div>
+              {userIdeasList.length === 0 ? (
+                <p className="text-gray-500">No ideas yet</p>
+              ) : (
+                <div className="space-y-3">
+                  {userIdeasList.slice(0, 3).map((idea) => (
+                    <Link
+                      key={idea.id}
+                      to={`/ideas/${idea.id}`}
+                      className="block p-4 border border-gray-200 rounded-lg hover:bg-gray-50 cursor-pointer"
+                    >
+                      <p className="font-medium text-gray-900">
+                        {idea.title}
+                      </p>
+                      <p className="text-sm text-gray-600 mt-1 line-clamp-2">
+                        {idea.description}
+                      </p>
+                      <div className="flex justify-between items-center mt-2">
+                        <span className="text-xs text-gray-500">
+                          {idea.createdAt.toLocaleDateString()}
+                        </span>
+                        <span className={`text-xs px-2 py-1 rounded ${idea.status === 'Approved' ? 'bg-green-100 text-green-800' : 'bg-yellow-100 text-yellow-800'}`}>
+                          {idea.status}
+                        </span>
+                      </div>
+                    </Link>
+                  ))}
+                </div>
+              )}
             </div>
           </div>
         </div>

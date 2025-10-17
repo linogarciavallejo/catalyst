@@ -9,6 +9,7 @@ import CreateEditIdeaPage from './pages/CreateEditIdeaPage';
 import ChatPage from './pages/ChatPage';
 import UserProfilePage from './pages/UserProfilePage';
 import SettingsPage from './pages/SettingsPage';
+import NotificationsPage from './pages/NotificationsPage';
 import NotFoundPage from './pages/NotFoundPage';
 
 /**
@@ -35,6 +36,7 @@ const AppRouter: React.FC = () => {
         <Route path="/chat" element={<ChatPage />} />
         <Route path="/profile/:userId" element={<UserProfilePage />} />
         <Route path="/settings" element={<SettingsPage />} />
+        <Route path="/notifications" element={<NotificationsPage />} />
 
         {/* Redirects */}
         <Route path="/home" element={<Navigate to="/" replace />} />

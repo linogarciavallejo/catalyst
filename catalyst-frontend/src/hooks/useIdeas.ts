@@ -1,9 +1,10 @@
 import { useState, useCallback } from "react";
-import { ideasService } from "../services/api/ideas";
+import { IdeasService } from "../services";
 import type { Idea, CreateIdeaRequest, IdeaFilters } from "../types";
 
 export interface UseIdeasReturn {
   ideas: Idea[];
+  pendingIdeas: Idea[];
   totalPages: number;
   currentPage: number;
   isLoading: boolean;
@@ -16,25 +17,35 @@ export interface UseIdeasReturn {
   deleteIdea: (id: string) => Promise<void>;
   getTrendingIdeas: (limit?: number) => Promise<void>;
   searchIdeas: (query: string, limit?: number) => Promise<void>;
+  isPending: (ideaId: string) => boolean;
   clearError: () => void;
+  onIdeaCreated: (callback: (idea: Idea) => void) => void;
 }
 
 export const useIdeas = (): UseIdeasReturn => {
   const [ideas, setIdeas] = useState<Idea[]>([]);
+  const [pendingIdeas, setPendingIdeas] = useState<Idea[]>([]);
   const [totalPages, setTotalPages] = useState(0);
   const [currentPage, setCurrentPage] = useState(1);
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  const getIdeas = useCallback(async (filters?: IdeaFilters) => {
+  // Real-time event listeners
+  const [ideaCreatedListeners, setIdeaCreatedListeners] = useState<
+    Array<(idea: Idea) => void>
+  >([]);
+
+  const getIdeas = useCallback(async (_filters?: IdeaFilters) => {
     setIsLoading(true);
     setError(null);
 
     try {
-      const response = await ideasService.getIdeas(filters);
-      setIdeas(response.items);
-      setTotalPages(response.totalPages);
-      setCurrentPage(response.page);
+      const ideas = await IdeasService.getAllIdeas();
+      setIdeas(ideas);
+      // Note: If backend supports pagination, update this to handle response structure
+      // TODO: Use _filters for advanced filtering when backend supports it
+      setTotalPages(1);
+      setCurrentPage(1);
     } catch (err) {
       const errorMessage =
         err instanceof Error ? err.message : "Failed to load ideas";
@@ -46,7 +57,7 @@ export const useIdeas = (): UseIdeasReturn => {
 
   const getIdeaById = useCallback(async (id: string): Promise<Idea> => {
     try {
-      return await ideasService.getIdeaById(id);
+      return await IdeasService.getIdeaById(id);
     } catch (err) {
       const errorMessage =
         err instanceof Error ? err.message : "Failed to load idea";
@@ -57,23 +68,58 @@ export const useIdeas = (): UseIdeasReturn => {
 
   const createIdea = useCallback(
     async (request: CreateIdeaRequest): Promise<Idea> => {
-      setIsLoading(true);
       setError(null);
 
+      // Create optimistic idea
+      const optimisticIdea: Idea = {
+        id: `pending-${Date.now()}`,
+        title: request.title,
+        description: request.description,
+        category: request.category,
+        status: 'UnderReview',
+        createdAt: new Date(),
+        updatedAt: new Date(),
+        authorId: '', // Will be filled by server
+        author: {
+          id: '',
+          displayName: 'You',
+          email: '',
+          role: 'Contributor',
+          eipPoints: 0,
+          createdAt: new Date(),
+        },
+        upvotes: 0,
+        downvotes: 0,
+        commentCount: 0,
+      };
+
+      // Show optimistic idea immediately
+      setPendingIdeas((prev) => [optimisticIdea, ...prev]);
+
       try {
-        const newIdea = await ideasService.createIdea(request);
+        const newIdea = await IdeasService.createIdea(request);
+        // Remove from pending and add to confirmed
+        setPendingIdeas((prev) =>
+          prev.filter((idea) => idea.id !== optimisticIdea.id)
+        );
         setIdeas((prev) => [newIdea, ...prev]);
+        
+        // Notify listeners
+        ideaCreatedListeners.forEach((listener) => listener(newIdea));
+        
         return newIdea;
       } catch (err) {
+        // Rollback on error
+        setPendingIdeas((prev) =>
+          prev.filter((idea) => idea.id !== optimisticIdea.id)
+        );
         const errorMessage =
           err instanceof Error ? err.message : "Failed to create idea";
         setError(errorMessage);
         throw err;
-      } finally {
-        setIsLoading(false);
       }
     },
-    []
+    [ideaCreatedListeners]
   );
 
   const updateIdea = useCallback(
@@ -82,7 +128,7 @@ export const useIdeas = (): UseIdeasReturn => {
       setError(null);
 
       try {
-        const updated = await ideasService.updateIdea(id, request);
+        const updated = await IdeasService.updateIdea(id, request);
         setIdeas((prev) =>
           prev.map((idea) => (idea.id === id ? updated : idea))
         );
@@ -104,7 +150,7 @@ export const useIdeas = (): UseIdeasReturn => {
     setError(null);
 
     try {
-      await ideasService.deleteIdea(id);
+      await IdeasService.deleteIdea(id);
       setIdeas((prev) => prev.filter((idea) => idea.id !== id));
     } catch (err) {
       const errorMessage =
@@ -121,7 +167,7 @@ export const useIdeas = (): UseIdeasReturn => {
     setError(null);
 
     try {
-      const trending = await ideasService.getTrendingIdeas(limit);
+      const trending = await IdeasService.getTopIdeas(limit);
       setIdeas(trending);
     } catch (err) {
       const errorMessage =
@@ -137,8 +183,8 @@ export const useIdeas = (): UseIdeasReturn => {
     setError(null);
 
     try {
-      const results = await ideasService.searchIdeas(query, limit);
-      setIdeas(results);
+      const results = await IdeasService.searchIdeas(query);
+      setIdeas(results.slice(0, limit));
     } catch (err) {
       const errorMessage =
         err instanceof Error ? err.message : "Failed to search ideas";
@@ -152,8 +198,20 @@ export const useIdeas = (): UseIdeasReturn => {
     setError(null);
   }, []);
 
+  const isPending = useCallback((ideaId: string): boolean => {
+    return pendingIdeas.some((idea) => idea.id === ideaId);
+  }, [pendingIdeas]);
+
+  const onIdeaCreated = useCallback(
+    (callback: (idea: Idea) => void) => {
+      setIdeaCreatedListeners((prev) => [...prev, callback]);
+    },
+    []
+  );
+
   return {
     ideas,
+    pendingIdeas,
     totalPages,
     currentPage,
     isLoading,
@@ -166,6 +224,8 @@ export const useIdeas = (): UseIdeasReturn => {
     deleteIdea,
     getTrendingIdeas,
     searchIdeas,
+    isPending,
     clearError,
+    onIdeaCreated,
   };
 };

@@ -10,6 +10,8 @@ export interface IdeaCardProps {
   onEdit?: (ideaId: string) => void;
   onDelete?: (ideaId: string) => void;
   className?: string;
+  isPending?: boolean; // Show pending badge for optimistic creates
+  isPendingVote?: boolean; // Show pending vote state
 }
 
 export const IdeaCard: React.FC<IdeaCardProps> = ({
@@ -19,6 +21,8 @@ export const IdeaCard: React.FC<IdeaCardProps> = ({
   onEdit,
   onDelete,
   className = "",
+  isPending = false,
+  isPendingVote = false,
 }) => {
   const getStatusColor = (status: string): "primary" | "success" | "warning" | "danger" | "info" => {
     const statusMap: Record<string, "primary" | "success" | "warning" | "danger" | "info"> = {
@@ -44,14 +48,26 @@ export const IdeaCard: React.FC<IdeaCardProps> = ({
           <div className="flex-1">
             <h3 className="text-lg font-semibold text-gray-900 mb-1">
               {idea.title}
+              {isPending && (
+                <span className="ml-2 inline-block px-2 py-1 bg-yellow-100 text-yellow-800 text-xs font-semibold rounded">
+                  Posting...
+                </span>
+              )}
             </h3>
             <p className="text-sm text-gray-600">
               by {idea.author?.displayName || "Anonymous"} • {new Date(idea.createdAt).toLocaleDateString()}
             </p>
           </div>
-          <Badge variant={getStatusColor(idea.status)} size="sm" rounded>
-            {idea.status.replace(/([A-Z])/g, " $1").trim()}
-          </Badge>
+          <div className="flex flex-col gap-2">
+            <Badge variant={getStatusColor(idea.status)} size="sm" rounded>
+              {idea.status.replace(/([A-Z])/g, " $1").trim()}
+            </Badge>
+            {isPendingVote && (
+              <Badge variant="warning" size="sm" rounded>
+                Updating...
+              </Badge>
+            )}
+          </div>
         </div>
 
         {/* Description */}

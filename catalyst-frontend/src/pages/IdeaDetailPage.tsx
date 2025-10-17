@@ -1,10 +1,10 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useParams, Link } from 'react-router-dom';
 import { Button } from '@/components/ui';
 import { Header, Footer } from '@/components/Layout';
 import { VoteButton, UserProfile } from '@/components/features';
-import type { Idea, Comment } from '@/types';
-import { IdeaStatus } from '@/types';
+import type { Idea } from '@/types';
+import { useIdeas, useVoting, useComments } from '@/hooks';
 
 /**
  * IdeaDetailPage Component
@@ -19,70 +19,116 @@ import { IdeaStatus } from '@/types';
  */
 const IdeaDetailPage: React.FC = () => {
   const { ideaId } = useParams<{ ideaId: string }>();
-  const [idea] = useState<Idea>({
-    id: ideaId || '1',
-    title: 'Implement dark mode UI',
-    description:
-      'Add comprehensive dark mode support across the entire application. This would include:\n\n' +
-      '- Custom CSS variables for theme switching\n' +
-      '- Automatic theme detection based on system preferences\n' +
-      '- User preference persistence in local storage\n' +
-      '- Smooth transitions between themes\n' +
-      '- Accessibility compliance for both light and dark modes\n\n' +
-      'Benefits:\n' +
-      '- Reduced eye strain for night users\n' +
-      '- Better battery life on OLED displays\n' +
-      '- Modern user experience\n' +
-      '- Competitive advantage',
-    category: 'Feature',
-    authorId: 'u1',
-    author: {
-      id: 'u1',
-      displayName: 'John Doe',
-      email: 'john@example.com',
-      role: 'Creator',
-      eipPoints: 150,
-      createdAt: new Date('2025-09-01'),
-    },
-    status: IdeaStatus.Approved,
-    upvotes: 42,
-    downvotes: 3,
-    commentCount: 15,
-    createdAt: new Date('2025-10-10'),
-    updatedAt: new Date('2025-10-15'),
-  });
+  const { getIdeaById: loadIdea } = useIdeas();
+  const { submitVote } = useVoting();
+  const { getComments, addComment, comments, pendingComments } = useComments();
 
-  const [comments] = useState<Comment[]>([
-    {
-      id: 'c1',
-      ideaId: idea.id,
-      authorId: 'u2',
-      author: {
-        id: 'u2',
-        displayName: 'Jane Smith',
-        email: 'jane@example.com',
-        role: 'Contributor',
-        eipPoints: 95,
-        createdAt: new Date('2025-08-15'),
-      },
-      content: 'Great idea! Dark mode is definitely needed.',
-      createdAt: new Date('2025-10-11'),
-      updatedAt: new Date('2025-10-11'),
-    },
-  ]);
+  const [idea, setIdea] = useState<Idea | null>(null);
+  const [newComment, setNewComment] = useState('');
+  const [loading, setLoading] = useState(true);
+  const [isSubmittingComment, setIsSubmittingComment] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  // Load idea and comments on mount
+  useEffect(() => {
+    const loadData = async () => {
+      if (!ideaId) return;
+      try {
+        setLoading(true);
+        setError(null);
+        const loadedIdea = await loadIdea(ideaId);
+        if (loadedIdea) {
+          setIdea(loadedIdea);
+          await getComments(ideaId);
+        } else {
+          setError('Idea not found');
+        }
+      } catch (err) {
+        console.error('Failed to load idea:', err);
+        setError('Failed to load idea');
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    loadData();
+  }, [ideaId, loadIdea, getComments]);
+
+  const handleVote = async (voteType: string) => {
+    if (!idea) return;
+    try {
+      // Convert vote type string to proper VoteType (Upvote | Downvote)
+      const voteTypeMap: Record<string, 'Upvote' | 'Downvote'> = {
+        'upvote': 'Upvote',
+        'downvote': 'Downvote',
+      };
+      const normalizedType = voteTypeMap[voteType.toLowerCase()];
+      if (!normalizedType) throw new Error('Invalid vote type');
+      
+      await submitVote(idea.id, normalizedType);
+      // Reload idea to get updated vote counts
+      const updatedIdea = await loadIdea(idea.id);
+      if (updatedIdea) setIdea(updatedIdea);
+    } catch (err) {
+      console.error('Failed to vote:', err);
+    }
+  };
+
+  const handleAddComment = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!newComment.trim() || !idea) return;
+
+    try {
+      setIsSubmittingComment(true);
+      await addComment({ ideaId: idea.id, content: newComment });
+      setNewComment('');
+      // Reload comments
+      await getComments(idea.id);
+    } catch (err) {
+      console.error('Failed to add comment:', err);
+    } finally {
+      setIsSubmittingComment(false);
+    }
+  };
 
   const getStatusColor = (status: string) => {
     switch (status) {
-      case IdeaStatus.Approved:
+      case 'Approved':
         return 'bg-green-100 text-green-800';
-      case IdeaStatus.UnderReview:
+      case 'UnderReview':
         return 'bg-yellow-100 text-yellow-800';
-      case IdeaStatus.Rejected:
+      case 'Rejected':
         return 'bg-red-100 text-red-800';
       default:
         return 'bg-gray-100 text-gray-800';
     }
   };
+
+  // Show loading state
+  if (loading) {
+    return (
+      <div className="min-h-screen flex flex-col bg-gray-50">
+        <Header logo="💡" title="Catalyst" actions={<Link to="/ideas"><Button variant="outline" size="sm">Back</Button></Link>} />
+        <main className="flex-1 container mx-auto px-4 py-8 text-center">
+          <p className="text-gray-600">Loading idea...</p>
+        </main>
+        <Footer columns={[]} copyright="© 2025 Catalyst. All rights reserved." />
+      </div>
+    );
+  }
+
+  // Show error state
+  if (error || !idea) {
+    return (
+      <div className="min-h-screen flex flex-col bg-gray-50">
+        <Header logo="💡" title="Catalyst" actions={<Link to="/ideas"><Button variant="outline" size="sm">Back</Button></Link>} />
+        <main className="flex-1 container mx-auto px-4 py-8 text-center">
+          <p className="text-red-600">{error || 'Idea not found'}</p>
+        </main>
+        <Footer columns={[]} copyright="© 2025 Catalyst. All rights reserved." />
+      </div>
+    );
+  }
 
   return (
     <div className="min-h-screen flex flex-col bg-gray-50">
@@ -130,9 +176,7 @@ const IdeaDetailPage: React.FC = () => {
               upvotes={idea.upvotes}
               downvotes={idea.downvotes}
               vertical={true}
-              onVote={async () => {
-                console.log(`Voted on idea ${idea.id}`);
-              }}
+              onVote={handleVote}
             />
           </div>
         </div>
@@ -159,21 +203,52 @@ const IdeaDetailPage: React.FC = () => {
 
               {/* Comment Form */}
               <div className="mb-8 p-4 bg-gray-50 rounded-lg">
-                <textarea
-                  placeholder="Share your thoughts..."
-                  rows={4}
-                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
-                />
-                <div className="mt-3 flex justify-end">
-                  <Button variant="primary" size="sm">
-                    Post Comment
-                  </Button>
-                </div>
+                <form onSubmit={handleAddComment}>
+                  <textarea
+                    placeholder="Share your thoughts..."
+                    rows={4}
+                    value={newComment}
+                    onChange={(e) => setNewComment(e.target.value)}
+                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  />
+                  <div className="mt-3 flex justify-end">
+                    <Button
+                      variant="primary"
+                      size="sm"
+                      type="submit"
+                      disabled={isSubmittingComment || !newComment.trim()}
+                    >
+                      {isSubmittingComment ? 'Posting...' : 'Post Comment'}
+                    </Button>
+                  </div>
+                </form>
               </div>
 
               {/* Comments List */}
               <div className="space-y-4">
-                {comments.map((comment) => (
+                {/* Optimistic comments first (showing pending state) */}
+                {pendingComments && pendingComments.length > 0 && (
+                  <div className="space-y-4">
+                    {pendingComments.map((comment) => (
+                      <div
+                        key={comment.id}
+                        className="p-4 border border-yellow-200 rounded-lg bg-yellow-50 opacity-70"
+                      >
+                        <div className="flex items-start justify-between mb-2">
+                          <div>
+                            <p className="font-semibold text-gray-900">
+                              {comment.author.displayName}
+                            </p>
+                            <p className="text-sm text-gray-500">Posting...</p>
+                          </div>
+                        </div>
+                        <p className="text-gray-700 mb-3">{comment.content}</p>
+                      </div>
+                    ))}
+                  </div>
+                )}
+                {/* Real comments */}
+                {comments && comments.map((comment) => (
                   <div key={comment.id} className="p-4 border border-gray-200 rounded-lg">
                     <div className="flex items-start justify-between mb-2">
                       <div>

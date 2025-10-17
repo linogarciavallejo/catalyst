@@ -1,102 +1,122 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
 import { Button, Input } from '@/components/ui';
 import { Header, Footer } from '@/components/Layout';
 import { IdeaCard } from '@/components/features';
+import { useIdeas, useVoting } from '../hooks';
 import type { Idea } from '@/types';
-import { IdeaStatus } from '@/types';
 
 /**
  * IdeasBrowsingPage Component
  * Browse and filter ideas with search, sorting, and pagination.
  * Features:
- * - Search and filter ideas
+ * - Search and filter ideas (real data from backend)
  * - Sort by status, date, votes
  * - Pagination
  * - Status badges
  * - Direct links to idea details
+ * - Real-time voting
  */
 const IdeasBrowsingPage: React.FC = () => {
+  const { ideas, pendingIdeas, isPending, getIdeas, searchIdeas, isLoading } = useIdeas();
+  const { submitVote, isPending: isVotePending } = useVoting();
+  
   const [searchTerm, setSearchTerm] = useState('');
   const [statusFilter, setStatusFilter] = useState<string>('all');
   const [sortBy, setSortBy] = useState<string>('recent');
   const [page, setPage] = useState(1);
+  const [displayedIdeas, setDisplayedIdeas] = useState<Idea[]>([]);
 
-  // Mock data - will be replaced with API calls
-  const mockIdeas: Idea[] = [
-    {
-      id: '1',
-      title: 'Implement dark mode UI',
-      description: 'Add dark mode support for better user experience',
-      category: 'Feature',
-      authorId: 'u1',
-      author: {
-        id: 'u1',
-        displayName: 'John Doe',
-        email: 'john@example.com',
-        role: 'Creator',
-        eipPoints: 150,
-        createdAt: new Date('2025-09-01'),
-      },
-      status: IdeaStatus.Approved,
-      upvotes: 42,
-      downvotes: 3,
-      commentCount: 15,
-      createdAt: new Date('2025-10-10'),
-      updatedAt: new Date('2025-10-15'),
-    },
-    {
-      id: '2',
-      title: 'Mobile responsive design',
-      description: 'Improve mobile responsiveness across all pages',
-      category: 'Enhancement',
-      authorId: 'u2',
-      author: {
-        id: 'u2',
-        displayName: 'Jane Smith',
-        email: 'jane@example.com',
-        role: 'Contributor',
-        eipPoints: 95,
-        createdAt: new Date('2025-08-15'),
-      },
-      status: IdeaStatus.UnderReview,
-      upvotes: 28,
-      downvotes: 2,
-      commentCount: 8,
-      createdAt: new Date('2025-10-12'),
-      updatedAt: new Date('2025-10-16'),
-    },
-    {
-      id: '3',
-      title: 'API rate limiting',
-      description: 'Implement rate limiting for API endpoints',
-      category: 'Infrastructure',
-      authorId: 'u3',
-      author: {
-        id: 'u3',
-        displayName: 'Bob Johnson',
-        email: 'bob@example.com',
-        role: 'Champion',
-        eipPoints: 210,
-        createdAt: new Date('2025-07-20'),
-      },
-      status: IdeaStatus.Submitted,
-      upvotes: 15,
-      downvotes: 1,
-      commentCount: 5,
-      createdAt: new Date('2025-10-14'),
-      updatedAt: new Date('2025-10-17'),
-    },
-  ];
+  // Load ideas on mount
+  useEffect(() => {
+    const loadIdeas = async () => {
+      try {
+        await getIdeas();
+      } catch (err) {
+        console.error('Failed to load ideas:', err);
+      }
+    };
 
-  const filteredIdeas = mockIdeas.filter((idea) => {
-    const matchesSearch =
-      idea.title.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      idea.description.toLowerCase().includes(searchTerm.toLowerCase());
-    const matchesStatus =
-      statusFilter === 'all' || idea.status === statusFilter;
-    return matchesSearch && matchesStatus;
-  });
+    loadIdeas();
+  }, [getIdeas]);
+
+  // Filter and sort ideas
+  useEffect(() => {
+    // Combine pending and confirmed ideas (pending first)
+    const allIdeas = [...pendingIdeas, ...ideas];
+    let filtered = allIdeas;
+
+    // Apply search
+    if (searchTerm) {
+      filtered = filtered.filter(
+        (idea) =>
+          idea.title.toLowerCase().includes(searchTerm.toLowerCase()) ||
+          idea.description.toLowerCase().includes(searchTerm.toLowerCase())
+      );
+    }
+
+    // Apply status filter (skip for pending ideas to show them always)
+    if (statusFilter !== 'all') {
+      filtered = filtered.filter((idea) => {
+        // Always show pending ideas
+        if (idea.id.startsWith('pending-')) return true;
+        return idea.status === statusFilter;
+      });
+    }
+
+    // Apply sorting
+    switch (sortBy) {
+      case 'popular':
+        filtered.sort((a, b) => {
+          // Pending ideas float to top
+          if (a.id.startsWith('pending-')) return -1;
+          if (b.id.startsWith('pending-')) return 1;
+          return (b.upvotes - b.downvotes) - (a.upvotes - a.downvotes);
+        });
+        break;
+      case 'controversial':
+        filtered.sort((a, b) => {
+          // Pending ideas float to top
+          if (a.id.startsWith('pending-')) return -1;
+          if (b.id.startsWith('pending-')) return 1;
+          return (b.commentCount - a.commentCount);
+        });
+        break;
+      case 'recent':
+      default:
+        filtered.sort((a, b) => {
+          // Pending ideas float to top
+          if (a.id.startsWith('pending-')) return -1;
+          if (b.id.startsWith('pending-')) return 1;
+          return new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime();
+        });
+    }
+
+    setDisplayedIdeas(filtered);
+    setPage(1);
+  }, [ideas, pendingIdeas, searchTerm, statusFilter, sortBy]);
+
+  // Handle search
+  const handleSearch = async (term: string) => {
+    setSearchTerm(term);
+    if (term.trim()) {
+      try {
+        await searchIdeas(term);
+      } catch (err) {
+        console.error('Search failed:', err);
+      }
+    }
+  };
+
+  // Handle voting
+  const handleVote = async (ideaId: string, voteType: string) => {
+    try {
+      const type = voteType.charAt(0).toUpperCase() + voteType.slice(1) as 'Upvote' | 'Downvote';
+      await submitVote(ideaId, type);
+    } catch (err) {
+      console.error('Vote failed:', err);
+    }
+  };
 
   return (
     <div className="min-h-screen flex flex-col bg-gray-50">
@@ -128,7 +148,7 @@ const IdeasBrowsingPage: React.FC = () => {
             Browse Ideas
           </h1>
           <p className="text-gray-600">
-            Explore {filteredIdeas.length} ideas from the community
+            Explore {displayedIdeas.length} ideas from the community
           </p>
         </div>
 
@@ -140,8 +160,7 @@ const IdeasBrowsingPage: React.FC = () => {
               placeholder="Search ideas..."
               value={searchTerm}
               onChange={(e) => {
-                setSearchTerm(e.currentTarget.value);
-                setPage(1);
+                handleSearch(e.currentTarget.value);
               }}
               className="md:col-span-1"
             />
@@ -175,36 +194,47 @@ const IdeasBrowsingPage: React.FC = () => {
           </div>
         </div>
 
+        {/* Loading State */}
+        {isLoading && (
+          <div className="text-center py-12">
+            <p className="text-gray-500 text-lg">Loading ideas...</p>
+          </div>
+        )}
+
         {/* Ideas List */}
-        <div className="space-y-4 mb-8">
-          {filteredIdeas.length > 0 ? (
-            filteredIdeas.map((idea) => (
-              <Link key={idea.id} to={`/ideas/${idea.id}`}>
-                <IdeaCard
-                  idea={idea}
-                  onVote={(ideaId, type) => {
-                    console.log(`Voted ${type} on idea ${ideaId}`);
-                  }}
-                  onComment={(ideaId) => {
-                    console.log(`Comment on idea ${ideaId}`);
-                  }}
-                />
-              </Link>
-            ))
-          ) : (
-            <div className="text-center py-12">
-              <p className="text-gray-500 text-lg">No ideas found</p>
-              <Link to="/ideas/create">
-                <Button variant="primary" size="md" className="mt-4">
-                  Submit the First Idea
-                </Button>
-              </Link>
-            </div>
-          )}
-        </div>
+        {!isLoading && (
+          <div className="space-y-4 mb-8">
+            {displayedIdeas.length > 0 ? (
+              displayedIdeas.map((idea) => (
+                <Link key={idea.id} to={`/ideas/${idea.id}`}>
+                  <IdeaCard
+                    idea={idea}
+                    isPending={isPending(idea.id)}
+                    isPendingVote={isVotePending(idea.id)}
+                    onVote={(ideaId, type) => {
+                      handleVote(ideaId, type);
+                    }}
+                    onComment={(ideaId) => {
+                      console.log(`Comment on idea ${ideaId}`);
+                    }}
+                  />
+                </Link>
+              ))
+            ) : (
+              <div className="text-center py-12">
+                <p className="text-gray-500 text-lg">No ideas found</p>
+                <Link to="/ideas/create">
+                  <Button variant="primary" size="md" className="mt-4">
+                    Submit the First Idea
+                  </Button>
+                </Link>
+              </div>
+            )}
+          </div>
+        )}
 
         {/* Pagination */}
-        {filteredIdeas.length > 0 && (
+        {!isLoading && displayedIdeas.length > 0 && (
           <div className="flex justify-center gap-2">
             <Button
               variant="outline"
