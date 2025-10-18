@@ -1,16 +1,21 @@
 import React from 'react';
 import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-dom';
 
+// Components
+import { ProtectedRoute } from '@/components/ProtectedRoute';
+
 // Pages
-import HomePage from './pages/HomePage';
-import IdeasBrowsingPage from './pages/IdeasBrowsingPage';
-import IdeaDetailPage from './pages/IdeaDetailPage';
-import CreateEditIdeaPage from './pages/CreateEditIdeaPage';
-import ChatPage from './pages/ChatPage';
-import UserProfilePage from './pages/UserProfilePage';
-import SettingsPage from './pages/SettingsPage';
-import NotificationsPage from './pages/NotificationsPage';
-import NotFoundPage from './pages/NotFoundPage';
+import HomePage from '@/pages/HomePage';
+import LoginPage from '@/pages/LoginPage';
+import RegisterPage from '@/pages/RegisterPage';
+import IdeasBrowsingPage from '@/pages/IdeasBrowsingPage';
+import IdeaDetailPage from '@/pages/IdeaDetailPage';
+import CreateEditIdeaPage from '@/pages/CreateEditIdeaPage';
+import ChatPage from '@/pages/ChatPage';
+import UserProfilePage from '@/pages/UserProfilePage';
+import SettingsPage from '@/pages/SettingsPage';
+import NotificationsPage from '@/pages/NotificationsPage';
+import NotFoundPage from '@/pages/NotFoundPage';
 
 /**
  * AppRouter Component
@@ -27,16 +32,60 @@ const AppRouter: React.FC = () => {
       <Routes>
         {/* Public Routes */}
         <Route path="/" element={<HomePage />} />
+        <Route path="/login" element={<LoginPage />} />
+        <Route path="/register" element={<RegisterPage />} />
         <Route path="/ideas" element={<IdeasBrowsingPage />} />
         <Route path="/ideas/:ideaId" element={<IdeaDetailPage />} />
 
-        {/* Protected Routes (will add guards later) */}
-        <Route path="/ideas/create" element={<CreateEditIdeaPage />} />
-        <Route path="/ideas/:ideaId/edit" element={<CreateEditIdeaPage />} />
-        <Route path="/chat" element={<ChatPage />} />
-        <Route path="/profile/:userId" element={<UserProfilePage />} />
-        <Route path="/settings" element={<SettingsPage />} />
-        <Route path="/notifications" element={<NotificationsPage />} />
+        {/* Protected Routes */}
+        <Route
+          path="/ideas/create"
+          element={
+            <ProtectedRoute>
+              <CreateEditIdeaPage />
+            </ProtectedRoute>
+          }
+        />
+        <Route
+          path="/ideas/:ideaId/edit"
+          element={
+            <ProtectedRoute>
+              <CreateEditIdeaPage />
+            </ProtectedRoute>
+          }
+        />
+        <Route
+          path="/chat"
+          element={
+            <ProtectedRoute>
+              <ChatPage />
+            </ProtectedRoute>
+          }
+        />
+        <Route
+          path="/profile/:userId"
+          element={
+            <ProtectedRoute>
+              <UserProfilePage />
+            </ProtectedRoute>
+          }
+        />
+        <Route
+          path="/settings"
+          element={
+            <ProtectedRoute>
+              <SettingsPage />
+            </ProtectedRoute>
+          }
+        />
+        <Route
+          path="/notifications"
+          element={
+            <ProtectedRoute>
+              <NotificationsPage />
+            </ProtectedRoute>
+          }
+        />
 
         {/* Redirects */}
         <Route path="/home" element={<Navigate to="/" replace />} />
