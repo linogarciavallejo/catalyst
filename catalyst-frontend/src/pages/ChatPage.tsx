@@ -2,7 +2,9 @@ import React, { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
 import { Button } from '@/components/ui';
 import { Header, Footer } from '@/components/Layout';
-import { useChat, useAuth } from '../hooks';
+import { useChat, useAuth, useActivity } from '../hooks';
+import TypingIndicator from '@/components/TypingIndicator';
+import ActiveUsersList from '@/components/ActiveUsersList';
 import type { ChatMessage } from '@/types';
 
 /**
@@ -18,6 +20,7 @@ import type { ChatMessage } from '@/types';
 const ChatPage: React.FC = () => {
   const { messages, sendMessage, joinRoom, leaveRoom, connect, disconnect } = useChat();
   const { user } = useAuth();
+  const { typingUsers, activeUsers, startTyping, stopTyping, setViewingIdea } = useActivity();
   
   const [selectedRoom, setSelectedRoom] = useState<string>('general');
   const [newMessage, setNewMessage] = useState('');
@@ -29,6 +32,13 @@ const ChatPage: React.FC = () => {
     { id: 'feedback', name: 'Feedback' },
     { id: 'introductions', name: 'Introductions' },
   ];
+
+  // Track viewing room activity
+  useEffect(() => {
+    if (selectedRoom) {
+      setViewingIdea(selectedRoom);
+    }
+  }, [selectedRoom, setViewingIdea]);
 
   // Connect to chat on mount
   useEffect(() => {
@@ -130,9 +140,17 @@ const ChatPage: React.FC = () => {
           <div className="col-span-3 bg-white rounded-lg shadow-sm flex flex-col">
             {/* Chat Header */}
             <div className="border-b border-gray-200 p-4">
-              <h2 className="font-semibold text-gray-900">
-                #{rooms.find((r) => r.id === selectedRoom)?.name}
-              </h2>
+              <div className="flex items-center justify-between mb-2">
+                <h2 className="font-semibold text-gray-900">
+                  #{rooms.find((r) => r.id === selectedRoom)?.name}
+                </h2>
+              </div>
+              <div className="mb-3">
+                <ActiveUsersList
+                  users={activeUsers}
+                  maxDisplay={5}
+                />
+              </div>
               <p className="text-sm text-gray-600">
                 {filteredMessages.length} messages
               </p>
@@ -174,14 +192,32 @@ const ChatPage: React.FC = () => {
                 <input
                   type="text"
                   value={newMessage}
-                  onChange={(e) => setNewMessage(e.currentTarget.value)}
+                  onChange={(e) => {
+                    setNewMessage(e.currentTarget.value);
+                    if (selectedRoom && e.currentTarget.value.trim()) {
+                      startTyping(selectedRoom);
+                    }
+                  }}
+                  onBlur={() => {
+                    if (selectedRoom) {
+                      stopTyping(selectedRoom);
+                    }
+                  }}
                   placeholder="Type a message..."
                   className="flex-1 px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  data-testid="chat-message-input"
                 />
-                <Button variant="primary" size="sm" type="submit">
+                <Button variant="primary" size="sm" type="submit" data-testid="send-message">
                   Send
                 </Button>
               </form>
+              {/* Typing Indicator */}
+              <div className="mt-2">
+                <TypingIndicator
+                  users={selectedRoom ? typingUsers[selectedRoom] : []}
+                  showLabel={true}
+                />
+              </div>
             </div>
           </div>
         </div>

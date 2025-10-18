@@ -3,8 +3,10 @@ import { useParams, Link } from 'react-router-dom';
 import { Button } from '@/components/ui';
 import { Header, Footer } from '@/components/Layout';
 import { VoteButton, UserProfile } from '@/components/features';
+import TypingIndicator from '@/components/TypingIndicator';
+import PresenceIndicator from '@/components/PresenceIndicator';
 import type { Idea } from '@/types';
-import { useIdeas, useVoting, useComments } from '@/hooks';
+import { useIdeas, useVoting, useComments, useActivity } from '@/hooks';
 
 /**
  * IdeaDetailPage Component
@@ -22,12 +24,20 @@ const IdeaDetailPage: React.FC = () => {
   const { getIdeaById: loadIdea } = useIdeas();
   const { submitVote } = useVoting();
   const { getComments, addComment, comments, pendingComments } = useComments();
+  const { typingUsers, viewingUsers, startTyping, stopTyping, setViewingIdea } = useActivity();
 
   const [idea, setIdea] = useState<Idea | null>(null);
   const [newComment, setNewComment] = useState('');
   const [loading, setLoading] = useState(true);
   const [isSubmittingComment, setIsSubmittingComment] = useState(false);
   const [error, setError] = useState<string | null>(null);
+
+  // Track viewing activity
+  useEffect(() => {
+    if (ideaId) {
+      setViewingIdea(ideaId);
+    }
+  }, [ideaId, setViewingIdea]);
 
   // Load idea and comments on mount
   useEffect(() => {
@@ -154,6 +164,16 @@ const IdeaDetailPage: React.FC = () => {
 
       {/* Main Content */}
       <main className="flex-1 container mx-auto px-4 py-8 max-w-4xl">
+        {/* Presence Indicator */}
+        {ideaId && (
+          <div className="mb-6">
+            <PresenceIndicator
+              users={ideaId ? viewingUsers[ideaId] : []}
+              ideaId={ideaId}
+            />
+          </div>
+        )}
+
         {/* Idea Header */}
         <div className="mb-8">
           <div className="flex items-start justify-between gap-4 mb-4">
@@ -208,15 +228,29 @@ const IdeaDetailPage: React.FC = () => {
                     placeholder="Share your thoughts..."
                     rows={4}
                     value={newComment}
-                    onChange={(e) => setNewComment(e.target.value)}
+                    onChange={(e) => {
+                      setNewComment(e.target.value);
+                      if (ideaId && e.target.value.trim()) startTyping(ideaId);
+                    }}
+                    onBlur={() => {
+                      if (ideaId) stopTyping(ideaId);
+                    }}
                     className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                    data-testid="comment-input"
                   />
-                  <div className="mt-3 flex justify-end">
+                  <div className="mt-3 flex justify-between items-center">
+                    <div className="flex-1">
+                      <TypingIndicator
+                        users={ideaId ? typingUsers[ideaId] : []}
+                        showLabel={true}
+                      />
+                    </div>
                     <Button
                       variant="primary"
                       size="sm"
                       type="submit"
                       disabled={isSubmittingComment || !newComment.trim()}
+                      data-testid="submit-comment"
                     >
                       {isSubmittingComment ? 'Posting...' : 'Post Comment'}
                     </Button>

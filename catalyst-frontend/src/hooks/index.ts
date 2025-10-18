@@ -10,3 +10,4 @@ export { useAuthContext } from './useAuthContext';
 export { useAppContext } from './useAppContext';
 export { useNotificationContext } from './useNotificationContext';
 export { useConnectionState } from './useConnectionState';
+export { useActivity } from './useActivity';

@@ -3,7 +3,8 @@ import { Link } from 'react-router-dom';
 import { Button } from '@/components/ui';
 import { Header, Footer } from '@/components/Layout';
 import { Card, CardBody } from '@/components/ui';
-import { useIdeas } from '../hooks';
+import { useIdeas, useActivity } from '../hooks';
+import ActiveUsersList from '@/components/ActiveUsersList';
 import type { Idea } from '@/types';
 
 interface StatsData {
@@ -23,11 +24,17 @@ interface StatsData {
  */
 const HomePage: React.FC = () => {
   const { ideas, getTrendingIdeas } = useIdeas();
+  const { activeUsers, setViewingIdea } = useActivity();
   const [stats, setStats] = useState<StatsData>({
     totalIdeas: 0,
     approvedIdeas: 0,
     discussionCount: 0,
   });
+
+  // Track viewing activity
+  useEffect(() => {
+    setViewingIdea('homepage');
+  }, [setViewingIdea]);
 
   // Load trending ideas on mount
   useEffect(() => {
@@ -102,7 +109,7 @@ const HomePage: React.FC = () => {
         </section>
 
         {/* Stats Section */}
-        <section className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-12">
+        <section className="grid grid-cols-1 md:grid-cols-4 gap-6 mb-12">
           <Card>
             <CardBody>
               <div className="text-center">
@@ -124,6 +131,17 @@ const HomePage: React.FC = () => {
               <div className="text-center">
                 <p className="text-4xl font-bold text-purple-600">{stats.approvedIdeas}</p>
                 <p className="text-gray-600 mt-2">Approved Ideas</p>
+              </div>
+            </CardBody>
+          </Card>
+          <Card>
+            <CardBody>
+              <div>
+                <h3 className="font-semibold text-gray-900 mb-4">Active Users</h3>
+                <ActiveUsersList
+                  users={activeUsers}
+                  maxDisplay={8}
+                />
               </div>
             </CardBody>
           </Card>
