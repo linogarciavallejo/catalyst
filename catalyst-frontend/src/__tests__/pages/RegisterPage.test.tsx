@@ -133,6 +133,65 @@ describe('RegisterPage Component', () => {
     );
   });
 
+  it('should redirect to login page after successful registration with success message', async () => {
+    const mockRegister = vi.fn().mockResolvedValue(true);
+    (useAuth as any).mockReturnValue({
+      register: mockRegister,
+      isLoading: false,
+      error: null,
+      isAuthenticated: false,
+    });
+
+    const user = userEvent.setup();
+    render(
+      <BrowserRouter>
+        <RegisterPage />
+      </BrowserRouter>
+    );
+
+    const emailInput = screen.getByTestId('register-email-input') as HTMLInputElement;
+    const displayNameInput = screen.getByTestId('register-displayname-input') as HTMLInputElement;
+    const passwordInput = screen.getByTestId('register-password-input') as HTMLInputElement;
+    const confirmPasswordInput = screen.getByTestId('register-confirm-password-input') as HTMLInputElement;
+    const checkbox = screen.getByRole('checkbox') as HTMLInputElement;
+    const submitButton = screen.getByTestId('register-submit');
+
+    await user.type(emailInput, 'test@example.com');
+    await user.type(displayNameInput, 'Test User');
+    await user.type(passwordInput, 'Password123!');
+    await user.type(confirmPasswordInput, 'Password123!');
+    await user.click(checkbox);
+    await user.click(submitButton);
+
+    await waitFor(() => {
+      expect(mockNavigate).toHaveBeenCalledWith('/login', {
+        state: expect.objectContaining({
+          message: expect.stringContaining('successful'),
+        }),
+        replace: true,
+      });
+    });
+  });
+
+  it('should not navigate when registration is in progress', async () => {
+    const mockRegister = vi.fn();
+    (useAuth as any).mockReturnValue({
+      register: mockRegister,
+      isLoading: true,
+      error: null,
+      isAuthenticated: false,
+    });
+
+    render(
+      <BrowserRouter>
+        <RegisterPage />
+      </BrowserRouter>
+    );
+
+    const submitButton = screen.getByTestId('register-submit');
+    expect(submitButton).toBeDisabled();
+  });
+
   it('should display error message from useAuth', () => {
     (useAuth as any).mockReturnValue({
       register: vi.fn(),

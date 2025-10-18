@@ -47,6 +47,19 @@ public static class DependencyInjection
         services.AddScoped<IGamificationService, GamificationService>();
         services.AddScoped<INotificationService, NotificationService>();
 
+        // Register CORS
+        services.AddCors(options =>
+        {
+            options.AddPolicy("AllowLocalhost", builder =>
+            {
+                builder
+                    .WithOrigins("http://localhost:5173", "https://localhost:5173")
+                    .AllowAnyMethod()
+                    .AllowAnyHeader()
+                    .AllowCredentials();
+            });
+        });
+
         // Register authentication services
         RegisterAuthenticationServices(services, configuration);
 

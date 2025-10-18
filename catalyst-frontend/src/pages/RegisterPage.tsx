@@ -86,7 +86,11 @@ const RegisterPage: React.FC = () => {
         password: formData.password,
         confirmPassword: formData.confirmPassword,
       });
-      // Redirect happens automatically via useEffect when isAuthenticated changes
+      // Redirect to login page after successful registration
+      navigate('/login', { 
+        replace: true,
+        state: { message: 'Account created successfully! Please log in.' }
+      });
     } catch (err) {
       // Error is handled by useAuth and displayed via error state
       console.error('Registration error:', err);

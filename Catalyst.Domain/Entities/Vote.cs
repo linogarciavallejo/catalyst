@@ -8,7 +8,6 @@ namespace Catalyst.Domain.Entities;
 public class Vote
 {
     [BsonId]
-    [BsonRepresentation(BsonType.ObjectId)]
     public string Id { get; set; }
 
     [BsonElement("ideaId")]

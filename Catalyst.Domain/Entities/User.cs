@@ -8,7 +8,6 @@ namespace Catalyst.Domain.Entities;
 public class User
 {
     [BsonId]
-    [BsonRepresentation(BsonType.ObjectId)]
     public UserId Id { get; set; }
 
     [BsonElement("email")]

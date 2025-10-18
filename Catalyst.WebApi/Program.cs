@@ -4,6 +4,12 @@ using Catalyst.WebApi.Hubs;
 
 var builder = WebApplication.CreateBuilder(args);
 
+// Add User Secrets in development
+if (builder.Environment.IsDevelopment())
+{
+    builder.Configuration.AddUserSecrets<Program>();
+}
+
 // Add services to the container
 builder.Services.AddOpenApi();
 builder.Services.AddCatalystServices(builder.Configuration);
@@ -20,6 +26,9 @@ if (app.Environment.IsDevelopment())
 }
 
 app.UseHttpsRedirection();
+
+// Add CORS middleware
+app.UseCors("AllowLocalhost");
 
 // Add authentication middleware
 app.UseAuthentication();

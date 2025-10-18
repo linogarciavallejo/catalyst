@@ -21,10 +21,11 @@ export const useActivity = (): UseActivityReturn => {
   useEffect(() => {
     const activityHub = new ActivityHub();
     
-    // Connect to SignalR hub
-    activityHub.connect().catch((err) => {
-      console.error("Failed to connect to ActivityHub:", err);
-    });
+    // Connect to SignalR hub (disabled for now - ActivityHub not implemented on backend)
+    // TODO: Implement ActivityHub on backend before enabling
+    // activityHub.connect().catch((err) => {
+    //   console.error("Failed to connect to ActivityHub:", err);
+    // });
 
     // Listen for users typing
     activityHub.onUserTyping((userId: string, userName: string, ideaId: string) => {

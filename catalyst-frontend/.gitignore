@@ -12,7 +12,9 @@ dist
 dist-ssr
 *.local
 
-# Documentation directory (generated files)
+playwright-report/
+
+# Documentation folder (all support & generated assets - not committed)
 Documentation/
 
 # Editor directories and files
@@ -25,3 +27,4 @@ Documentation/
 *.njsproj
 *.sln
 *.sw?
+

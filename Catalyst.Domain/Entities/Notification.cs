@@ -7,7 +7,6 @@ namespace Catalyst.Domain.Entities;
 public class Notification
 {
     [BsonId]
-    [BsonRepresentation(BsonType.ObjectId)]
     public string Id { get; set; }
 
     [BsonElement("userId")]
@@ -23,7 +22,6 @@ public class Notification
     public string Message { get; set; }
 
     [BsonElement("relatedIdeaId")]
-    [BsonRepresentation(BsonType.ObjectId)]
     public IdeaId RelatedIdeaId { get; set; }
 
     [BsonElement("isRead")]

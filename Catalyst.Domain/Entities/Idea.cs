@@ -8,7 +8,6 @@ namespace Catalyst.Domain.Entities;
 public class Idea
 {
     [BsonId]
-    [BsonRepresentation(BsonType.ObjectId)]
     public IdeaId Id { get; set; }
 
     [BsonElement("title")]
@@ -54,7 +53,6 @@ public class Idea
     public List<Attachment> Attachments { get; set; } = new();
 
     [BsonElement("championId")]
-    [BsonRepresentation(BsonType.ObjectId)]
     public UserId ChampionId { get; set; }
 
     public Idea()

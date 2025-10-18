@@ -25,6 +25,18 @@ const LoginPage: React.FC = () => {
     password: '',
   });
   const [validationError, setValidationError] = useState<string>('');
+  const [successMessage, setSuccessMessage] = useState<string>('');
+
+  // Check for success message from registration redirect
+  useEffect(() => {
+    const message = (location.state as { message?: string })?.message;
+    if (message) {
+      setSuccessMessage(message);
+      // Auto-dismiss after 5 seconds
+      const timer = setTimeout(() => setSuccessMessage(''), 5000);
+      return () => clearTimeout(timer);
+    }
+  }, [location.state]);
 
   // Redirect if already authenticated
   useEffect(() => {
@@ -63,7 +75,11 @@ const LoginPage: React.FC = () => {
 
     try {
       await login(formData);
-      // Redirect happens automatically via useEffect when isAuthenticated changes
+      // Redirect to home page after successful login
+      // Don't use location.state.from for login, as it might be a protected route
+      const from = (location.state as { from?: { pathname: string } })?.from?.pathname;
+      const redirectTo = (from && !from.includes('/create') && !from.includes('/edit')) ? from : '/';
+      navigate(redirectTo, { replace: true });
     } catch (err) {
       // Error is handled by useAuth and displayed via error state
       console.error('Login error:', err);
@@ -97,6 +113,15 @@ const LoginPage: React.FC = () => {
                 Sign in to your Catalyst account
               </p>
             </div>
+
+            {/* Success Message */}
+            {successMessage && (
+              <div className="mb-6 p-4 bg-green-50 border border-green-200 rounded-lg">
+                <p className="text-green-800 text-sm font-medium">
+                  {successMessage}
+                </p>
+              </div>
+            )}
 
             {/* Error Messages */}
             {(error || validationError) && (

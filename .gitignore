@@ -81,6 +81,6 @@ packages/
 *.temp
 .cache/
 
-# Documentation (local/generated)
+# Documentation folder (all support & generated assets - not committed)
 Documentation/
 

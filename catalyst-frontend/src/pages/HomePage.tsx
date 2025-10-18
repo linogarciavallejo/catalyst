@@ -1,9 +1,9 @@
 import React, { useEffect, useState } from 'react';
-import { Link } from 'react-router-dom';
+import { Link, useNavigate } from 'react-router-dom';
 import { Button } from '@/components/ui';
 import { Header, Footer } from '@/components/Layout';
 import { Card, CardBody } from '@/components/ui';
-import { useIdeas, useActivity } from '../hooks';
+import { useIdeas, useActivity, useAuth } from '../hooks';
 import ActiveUsersList from '@/components/ActiveUsersList';
 import type { Idea } from '@/types';
 
@@ -23,13 +23,20 @@ interface StatsData {
  * - Navigation links
  */
 const HomePage: React.FC = () => {
+  const navigate = useNavigate();
   const { ideas, getTrendingIdeas } = useIdeas();
   const { activeUsers, setViewingIdea } = useActivity();
+  const { isAuthenticated, logout } = useAuth();
   const [stats, setStats] = useState<StatsData>({
     totalIdeas: 0,
     approvedIdeas: 0,
     discussionCount: 0,
   });
+
+  const handleLogout = async () => {
+    await logout();
+    navigate('/login');
+  };
 
   // Track viewing activity
   useEffect(() => {
@@ -80,6 +87,15 @@ const HomePage: React.FC = () => {
                 Submit Idea
               </Button>
             </Link>
+            {isAuthenticated && (
+              <Button 
+                variant="outline" 
+                size="sm"
+                onClick={handleLogout}
+              >
+                Sign Out
+              </Button>
+            )}
           </div>
         }
       />
@@ -186,9 +202,9 @@ const HomePage: React.FC = () => {
 
         {/* CTA Section */}
         <section className="bg-blue-600 text-white rounded-lg p-8 text-center mb-12">
-          <h2 className="text-3xl font-bold mb-4">Ready to get started?</h2>
+          <h2 className="text-3xl font-bold mb-4">Share Your Ideas</h2>
           <p className="text-lg mb-6 opacity-90">
-            Join thousands of innovators sharing and collaborating on ideas
+            Help shape the future of our organization by contributing your innovative ideas
           </p>
           <Link to="/ideas/create">
             <Button variant="primary" size="lg" className="bg-white text-blue-600">
@@ -202,31 +218,14 @@ const HomePage: React.FC = () => {
       <Footer
         columns={[
           {
-            title: 'Product',
+            title: 'Resources',
             links: [
-              { label: 'Features', href: '#' },
-              { label: 'Pricing', href: '#' },
-              { label: 'Security', href: '#' },
-            ],
-          },
-          {
-            title: 'Company',
-            links: [
-              { label: 'About', href: '#' },
-              { label: 'Blog', href: '#' },
-              { label: 'Contact', href: '#' },
-            ],
-          },
-          {
-            title: 'Legal',
-            links: [
-              { label: 'Privacy', href: '#' },
-              { label: 'Terms', href: '#' },
-              { label: 'License', href: '#' },
+              { label: 'Browse Ideas', href: '/ideas' },
+              { label: 'Submit Idea', href: '/ideas/create' },
             ],
           },
         ]}
-        copyright="© 2025 Catalyst. All rights reserved."
+        copyright="© 2025 Catalyst Portal. All rights reserved."
       />
     </div>
   );

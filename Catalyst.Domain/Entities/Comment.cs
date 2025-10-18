@@ -7,7 +7,6 @@ namespace Catalyst.Domain.Entities;
 public class Comment
 {
     [BsonId]
-    [BsonRepresentation(BsonType.ObjectId)]
     public CommentId Id { get; set; }
 
     [BsonElement("ideaId")]
@@ -29,7 +28,6 @@ public class Comment
     public DateTime UpdatedAt { get; set; }
 
     [BsonElement("parentCommentId")]
-    [BsonRepresentation(BsonType.ObjectId)]
     public CommentId ParentCommentId { get; set; }
 
     public Comment()
