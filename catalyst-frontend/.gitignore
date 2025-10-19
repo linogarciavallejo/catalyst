@@ -13,6 +13,10 @@ dist-ssr
 *.local
 
 playwright-report/
+coverage/
+coverage_output.txt
+coverage-report.txt
+test-results/
 
 # Documentation folder (all support & generated assets - not committed)
 Documentation/

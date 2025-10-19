@@ -5,7 +5,6 @@ using Catalyst.Infrastructure.MongoDB.Serializers;
 using FluentAssertions;
 using MongoDB.Bson;
 using MongoDB.Bson.Serialization;
-using Xunit;
 
 namespace Catalyst.Infrastructure.Tests.MongoDB;
 

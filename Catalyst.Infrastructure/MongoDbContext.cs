@@ -1,7 +1,6 @@
 using MongoDB.Bson.Serialization;
 using MongoDB.Driver;
 using Catalyst.Application.Interfaces;
-using Catalyst.Domain.ValueObjects;
 using Catalyst.Infrastructure.MongoDB.Serializers;
 
 namespace Catalyst.Infrastructure;

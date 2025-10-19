@@ -1,6 +1,5 @@
 using System.Net;
 using FluentAssertions;
-using Xunit;
 
 namespace Catalyst.WebApi.Tests.Endpoints;
 

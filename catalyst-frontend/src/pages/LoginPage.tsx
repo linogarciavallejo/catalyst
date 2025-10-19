@@ -140,6 +140,7 @@ const LoginPage: React.FC = () => {
                 ]}
               >
                 <Input
+                  data-testid="login-email-input"
                   prefix={<MailOutlined style={{ color: improvingColors.primaryBlue }} />}
                   placeholder="you@example.com"
                   size="large"
@@ -154,6 +155,7 @@ const LoginPage: React.FC = () => {
                 rules={[{ required: true, message: 'Password is required' }]}
               >
                 <Input.Password
+                  data-testid="login-password-input"
                   prefix={<LockOutlined style={{ color: improvingColors.primaryBlue }} />}
                   placeholder="••••••••"
                   size="large"
@@ -179,11 +181,13 @@ const LoginPage: React.FC = () => {
 
               <Form.Item style={{ marginBottom: 0 }}>
                 <Button
+                  data-testid="login-submit"
                   type="primary"
                   htmlType="submit"
                   size="large"
                   block
                   loading={isLoading}
+                  disabled={isLoading}
                   style={{
                     background: improvingColors.primaryBlue,
                     borderColor: improvingColors.primaryBlue,

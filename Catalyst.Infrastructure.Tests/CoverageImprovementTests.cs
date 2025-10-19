@@ -1,9 +1,6 @@
-using System;
 using Catalyst.Domain.Entities;
 using Catalyst.Domain.Enums;
-using Catalyst.Domain.ValueObjects;
 using FluentAssertions;
-using Xunit;
 
 namespace Catalyst.Infrastructure.Tests.Data;
 

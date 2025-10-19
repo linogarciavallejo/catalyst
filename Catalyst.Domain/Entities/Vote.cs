@@ -1,6 +1,5 @@
 using MongoDB.Bson;
 using MongoDB.Bson.Serialization.Attributes;
-using Catalyst.Domain.Enums;
 using Catalyst.Domain.ValueObjects;
 
 namespace Catalyst.Domain.Entities;

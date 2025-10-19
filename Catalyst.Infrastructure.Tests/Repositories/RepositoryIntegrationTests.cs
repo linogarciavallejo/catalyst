@@ -2,7 +2,6 @@ using Catalyst.Application.Interfaces;
 using Catalyst.Domain.Entities;
 using Catalyst.Domain.Enums;
 using FluentAssertions;
-using Xunit;
 
 namespace Catalyst.Infrastructure.Tests.Repositories;
 

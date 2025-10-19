@@ -1,6 +1,5 @@
 using Microsoft.AspNetCore.SignalR;
 using NSubstitute;
-using Xunit;
 using Catalyst.WebApi.Hubs;
 using Catalyst.Infrastructure.Authentication;
 

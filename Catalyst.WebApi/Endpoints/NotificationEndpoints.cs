@@ -1,9 +1,7 @@
 using Catalyst.Application.Interfaces;
 using Catalyst.Domain.Entities;
-using Catalyst.Domain.ValueObjects;
 using Catalyst.Infrastructure.Authentication;
 using Catalyst.WebApi.Dtos;
-using Microsoft.AspNetCore.Authorization;
 
 namespace Catalyst.WebApi.Endpoints;
 

@@ -134,6 +134,7 @@ const RegisterPage: React.FC = () => {
                 ]}
               >
                 <Input
+                  data-testid="register-email-input"
                   prefix={<MailOutlined style={{ color: improvingColors.primaryBlue }} />}
                   placeholder="you@example.com"
                   size="large"
@@ -151,6 +152,7 @@ const RegisterPage: React.FC = () => {
                 ]}
               >
                 <Input
+                  data-testid="register-displayname-input"
                   prefix={<UserOutlined style={{ color: improvingColors.primaryBlue }} />}
                   placeholder="John Doe"
                   size="large"
@@ -169,6 +171,7 @@ const RegisterPage: React.FC = () => {
                 tooltip={{ title: 'At least 8 characters recommended', icon: <></> }}
               >
                 <Input.Password
+                  data-testid="register-password-input"
                   prefix={<LockOutlined style={{ color: improvingColors.primaryBlue }} />}
                   placeholder="••••••••"
                   size="large"
@@ -193,6 +196,7 @@ const RegisterPage: React.FC = () => {
                 ]}
               >
                 <Input.Password
+                  data-testid="register-confirm-password-input"
                   prefix={<LockOutlined style={{ color: improvingColors.primaryBlue }} />}
                   placeholder="••••••••"
                   size="large"
@@ -222,11 +226,13 @@ const RegisterPage: React.FC = () => {
 
               <Form.Item style={{ marginBottom: 0 }}>
                 <Button
+                  data-testid="register-submit"
                   type="primary"
                   htmlType="submit"
                   size="large"
                   block
                   loading={isLoading}
+                  disabled={isLoading}
                   style={{
                     background: improvingColors.primaryBlue,
                     borderColor: improvingColors.primaryBlue,
