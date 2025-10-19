@@ -94,7 +94,7 @@ describe('dateUtils', () => {
     const date = new Date('2024-06-01T00:00:00Z');
     const newDate = addDays(date, 5);
     expect(newDate.toISOString()).toBe('2024-06-06T00:00:00.000Z');
-    expect(date.getDate()).toBe(1);
+    expect(date.toISOString()).toBe('2024-06-01T00:00:00.000Z');
   });
 
   it('checks today correctly', () => {
