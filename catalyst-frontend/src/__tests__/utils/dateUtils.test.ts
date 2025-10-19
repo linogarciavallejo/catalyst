@@ -93,7 +93,7 @@ describe('dateUtils', () => {
   it('adds days to date', () => {
     const date = new Date('2024-06-01T00:00:00Z');
     const newDate = addDays(date, 5);
-    expect(newDate.getDate()).toBe(6);
+    expect(newDate.toISOString()).toBe('2024-06-06T00:00:00.000Z');
     expect(date.getDate()).toBe(1);
   });
 
