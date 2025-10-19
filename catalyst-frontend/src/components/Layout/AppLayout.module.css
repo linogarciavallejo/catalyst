@@ -1,0 +1,13 @@
+.sider {
+  box-shadow: 2px 0 8px rgba(0, 0, 0, 0.1);
+}
+
+.mobileMenuBtn {
+  display: none !important;
+}
+
+@media (max-width: 1024px) {
+  .mobileMenuBtn {
+    display: inline-block !important;
+  }
+}

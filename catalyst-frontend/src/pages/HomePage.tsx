@@ -1,236 +1,204 @@
 import React, { useEffect, useState } from 'react';
-import { Link, useNavigate } from 'react-router-dom';
-import { Button } from '@/components/ui';
-import { Header, Footer } from '@/components/Layout';
-import { Card, CardBody } from '@/components/ui';
-import { useIdeas, useActivity, useAuth } from '../hooks';
-import ActiveUsersList from '@/components/ActiveUsersList';
+import { useNavigate } from 'react-router-dom';
+import { Row, Col, Card, Button, Statistic, Empty, Spin, Space, Divider } from 'antd';
+import { BulbOutlined, TeamOutlined, PlusOutlined } from '@ant-design/icons';
+import { AppLayout } from '@/components/Layout';
+import { useIdeas, useActivity, useAuth } from '@/hooks';
+import { NotificationService } from '@/services/NotificationService';
+import { improvingColors } from '@/theme/colors';
+import { IdeaStatus } from '@/types';
 import type { Idea } from '@/types';
 
-interface StatsData {
-  totalIdeas: number;
-  approvedIdeas: number;
-  discussionCount: number;
-}
-
-/**
- * HomePage Component
- * Landing page / dashboard for the application.
- * Features:
- * - Hero section with call to action
- * - Real stats overview loaded from backend
- * - Featured/trending ideas carousel
- * - Navigation links
- */
 const HomePage: React.FC = () => {
   const navigate = useNavigate();
   const { ideas, getTrendingIdeas } = useIdeas();
-  const { activeUsers, setViewingIdea } = useActivity();
-  const { isAuthenticated, logout } = useAuth();
-  const [stats, setStats] = useState<StatsData>({
-    totalIdeas: 0,
-    approvedIdeas: 0,
-    discussionCount: 0,
-  });
+  const { activeUsers } = useActivity();
+  const { isAuthenticated } = useAuth();
+  const [loading, setLoading] = useState(true);
 
-  const handleLogout = async () => {
-    await logout();
-    navigate('/login');
-  };
-
-  // Track viewing activity
   useEffect(() => {
-    setViewingIdea('homepage');
-  }, [setViewingIdea]);
-
-  // Load trending ideas on mount
-  useEffect(() => {
-    const loadTrendingIdeas = async () => {
+    const loadData = async () => {
       try {
         await getTrendingIdeas(6);
-      } catch (err) {
-        console.error('Failed to load trending ideas:', err);
+      } catch {
+        NotificationService.error('Failed to load ideas');
+      } finally {
+        setLoading(false);
       }
     };
-
-    loadTrendingIdeas();
+    loadData();
   }, [getTrendingIdeas]);
 
-  // Update stats based on loaded ideas
-  useEffect(() => {
-    if (ideas.length > 0) {
-      const approved = ideas.filter((idea: Idea) => idea.status === 'Approved').length;
-      const totalComments = ideas.reduce((sum: number, idea: Idea) => sum + idea.commentCount, 0);
+  const stats = {
+    totalIdeas: ideas.length,
+    approvedIdeas: ideas.filter((i: Idea) => i.status === IdeaStatus.Approved).length,
+    activeUsers: activeUsers.length,
+  };
 
-      setStats({
-        totalIdeas: ideas.length,
-        approvedIdeas: approved,
-        discussionCount: totalComments,
-      });
+  const handleCreateIdea = () => {
+    if (!isAuthenticated) {
+      NotificationService.warning('Login required');
+      navigate('/login');
+      return;
     }
-  }, [ideas]);
+    navigate('/ideas/create');
+  };
+
   return (
-    <div className="min-h-screen flex flex-col bg-gray-50">
-      {/* Header */}
-      <Header
-        logo="💡"
-        title="Catalyst"
-        actions={
-          <div className="flex gap-2">
-            <Link to="/ideas">
-              <Button variant="outline" size="sm">
-                Browse Ideas
-              </Button>
-            </Link>
-            <Link to="/ideas/create">
-              <Button variant="primary" size="sm">
-                Submit Idea
-              </Button>
-            </Link>
-            {isAuthenticated && (
-              <Button 
-                variant="outline" 
-                size="sm"
-                onClick={handleLogout}
+    <AppLayout>
+      <div style={{
+        background: `linear-gradient(135deg, ${improvingColors.primaryBlue} 0%, ${improvingColors.teal} 100%)`,
+        borderRadius: '8px',
+        padding: '64px 48px',
+        marginBottom: '48px',
+        color: '#ffffff',
+        textAlign: 'center',
+      }}>
+        <h1 style={{ fontSize: '48px', fontWeight: 700, margin: '0 0 16px 0' }}>
+          Welcome to Catalyst
+        </h1>
+        <p style={{ fontSize: '18px', margin: '0 0 32px 0' }}>
+          A collaborative platform for innovative ideas
+        </p>
+        <Space>
+          <Button
+            type="primary"
+            size="large"
+            icon={<PlusOutlined />}
+            onClick={handleCreateIdea}
+            style={{
+              backgroundColor: '#ffffff',
+              color: improvingColors.primaryBlue,
+              fontWeight: 600,
+              height: '44px',
+              paddingInline: '32px',
+            }}
+          >
+            Create New Idea
+          </Button>
+          <Button
+            size="large"
+            onClick={() => navigate('/ideas')}
+            style={{
+              backgroundColor: 'transparent',
+              color: '#ffffff',
+              borderColor: '#ffffff',
+              fontWeight: 600,
+              height: '44px',
+            }}
+          >
+            Browse Ideas
+          </Button>
+        </Space>
+      </div>
+
+      <Row gutter={[24, 24]} style={{ marginBottom: '48px' }}>
+        <Col xs={24} sm={12} lg={8}>
+          <Card style={{ borderRadius: '8px', border: `1px solid ${improvingColors.gray300}` }}>
+            <Statistic
+              title="Total Ideas"
+              value={stats.totalIdeas}
+              prefix={<BulbOutlined />}
+            />
+          </Card>
+        </Col>
+        <Col xs={24} sm={12} lg={8}>
+          <Card style={{ borderRadius: '8px', border: `1px solid ${improvingColors.gray300}` }}>
+            <Statistic
+              title="Approved Ideas"
+              value={stats.approvedIdeas}
+              prefix={<BulbOutlined />}
+            />
+          </Card>
+        </Col>
+        <Col xs={24} sm={12} lg={8}>
+          <Card style={{ borderRadius: '8px', border: `1px solid ${improvingColors.gray300}` }}>
+            <Statistic
+              title="Active Users"
+              value={stats.activeUsers}
+              prefix={<TeamOutlined />}
+            />
+          </Card>
+        </Col>
+      </Row>
+
+      <Divider style={{ margin: '48px 0' }} />
+      <h2 style={{ fontSize: '32px', fontWeight: 700, marginBottom: '24px' }}>
+        Trending Ideas
+      </h2>
+
+      {loading ? (
+        <div style={{ textAlign: 'center', padding: '48px' }}>
+          <Spin size="large" />
+        </div>
+      ) : ideas.length === 0 ? (
+        <Empty description="No ideas yet">
+          <Button type="primary" onClick={handleCreateIdea}>
+            Submit Your First Idea
+          </Button>
+        </Empty>
+      ) : (
+        <Row gutter={[24, 24]}>
+          {ideas.map((idea: Idea) => (
+            <Col key={idea.id} xs={24} sm={12} lg={8}>
+              <Card
+                hoverable
+                onClick={() => navigate(`/ideas/${idea.id}`)}
+                style={{ borderRadius: '8px', cursor: 'pointer' }}
               >
-                Sign Out
-              </Button>
-            )}
-          </div>
-        }
-      />
+                <h3 style={{ fontWeight: 600, fontSize: '16px', marginBottom: '12px' }}>
+                  {idea.title}
+                </h3>
+                <p style={{ color: improvingColors.gray500, marginBottom: '12px' }}>
+                  {idea.description.substring(0, 100)}...
+                </p>
+                <div style={{
+                  display: 'flex',
+                  justifyContent: 'space-between',
+                  borderTop: `1px solid ${improvingColors.gray200}`,
+                  paddingTop: '12px',
+                }}>
+                  <span>{idea.commentCount || 0} comments</span>
+                  <span style={{ fontWeight: 600, color: improvingColors.primaryBlue }}>
+                    {idea.status}
+                  </span>
+                </div>
+              </Card>
+            </Col>
+          ))}
+        </Row>
+      )}
 
-      {/* Main Content */}
-      <main className="flex-1 container mx-auto px-4 py-8">
-        {/* Hero Section */}
-        <section className="text-center mb-12 py-8">
-          <h1 className="text-5xl font-bold text-gray-900 mb-4">
-            Collaborative Innovation Platform
-          </h1>
-          <p className="text-xl text-gray-600 mb-8 max-w-2xl mx-auto">
-            Share, discuss, and vote on innovative ideas in real-time
-          </p>
-          <div className="flex gap-4 justify-center">
-            <Link to="/ideas">
-              <Button variant="primary" size="lg">
-                Explore Ideas
-              </Button>
-            </Link>
-            <Link to="/ideas/create">
-              <Button variant="secondary" size="lg">
-                Submit Your Idea
-              </Button>
-            </Link>
-          </div>
-        </section>
-
-        {/* Stats Section */}
-        <section className="grid grid-cols-1 md:grid-cols-4 gap-6 mb-12">
-          <Card>
-            <CardBody>
-              <div className="text-center">
-                <p className="text-4xl font-bold text-blue-600">{stats.totalIdeas}</p>
-                <p className="text-gray-600 mt-2">Ideas Submitted</p>
-              </div>
-            </CardBody>
-          </Card>
-          <Card>
-            <CardBody>
-              <div className="text-center">
-                <p className="text-4xl font-bold text-green-600">{stats.discussionCount}</p>
-                <p className="text-gray-600 mt-2">Active Discussions</p>
-              </div>
-            </CardBody>
-          </Card>
-          <Card>
-            <CardBody>
-              <div className="text-center">
-                <p className="text-4xl font-bold text-purple-600">{stats.approvedIdeas}</p>
-                <p className="text-gray-600 mt-2">Approved Ideas</p>
-              </div>
-            </CardBody>
-          </Card>
-          <Card>
-            <CardBody>
-              <div>
-                <h3 className="font-semibold text-gray-900 mb-4">Active Users</h3>
-                <ActiveUsersList
-                  users={activeUsers}
-                  maxDisplay={8}
-                />
-              </div>
-            </CardBody>
-          </Card>
-        </section>
-
-        {/* Features Section */}
-        <section className="bg-white rounded-lg p-8 mb-12">
-          <h2 className="text-3xl font-bold text-gray-900 mb-8 text-center">
-            Features
-          </h2>
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
-            <div className="text-center">
-              <div className="text-4xl mb-4">💡</div>
-              <h3 className="font-semibold text-gray-900 mb-2">Submit Ideas</h3>
-              <p className="text-gray-600 text-sm">
-                Share your innovative ideas with the community
-              </p>
-            </div>
-            <div className="text-center">
-              <div className="text-4xl mb-4">🗳️</div>
-              <h3 className="font-semibold text-gray-900 mb-2">Vote & Discuss</h3>
-              <p className="text-gray-600 text-sm">
-                Upvote ideas and participate in discussions
-              </p>
-            </div>
-            <div className="text-center">
-              <div className="text-4xl mb-4">💬</div>
-              <h3 className="font-semibold text-gray-900 mb-2">Real-Time Chat</h3>
-              <p className="text-gray-600 text-sm">
-                Collaborate with team members in real-time
-              </p>
-            </div>
-            <div className="text-center">
-              <div className="text-4xl mb-4">📊</div>
-              <h3 className="font-semibold text-gray-900 mb-2">Track Progress</h3>
-              <p className="text-gray-600 text-sm">
-                Follow ideas from submission to approval
-              </p>
-            </div>
-          </div>
-        </section>
-
-        {/* CTA Section */}
-        <section className="bg-blue-600 text-white rounded-lg p-8 text-center mb-12">
-          <h2 className="text-3xl font-bold mb-4">Share Your Ideas</h2>
-          <p className="text-lg mb-6 opacity-90">
-            Help shape the future of our organization by contributing your innovative ideas
-          </p>
-          <Link to="/ideas/create">
-            <Button variant="primary" size="lg" className="bg-white text-blue-600">
-              Submit Your First Idea
+      {isAuthenticated && (
+        <>
+          <Divider style={{ margin: '48px 0' }} />
+          <div style={{
+            background: improvingColors.lightGray,
+            borderRadius: '8px',
+            padding: '48px',
+            textAlign: 'center',
+          }}>
+            <h2 style={{ fontSize: '28px', fontWeight: 700, marginBottom: '16px' }}>
+              Have an idea?
+            </h2>
+            <Button
+              type="primary"
+              size="large"
+              icon={<PlusOutlined />}
+              onClick={handleCreateIdea}
+              style={{
+                backgroundColor: improvingColors.primaryBlue,
+                fontWeight: 600,
+                height: '44px',
+              }}
+            >
+              Submit Your Idea
             </Button>
-          </Link>
-        </section>
-      </main>
-
-      {/* Footer */}
-      <Footer
-        columns={[
-          {
-            title: 'Resources',
-            links: [
-              { label: 'Browse Ideas', href: '/ideas' },
-              { label: 'Submit Idea', href: '/ideas/create' },
-            ],
-          },
-        ]}
-        copyright="© 2025 Catalyst Portal. All rights reserved."
-      />
-    </div>
+          </div>
+        </>
+      )}
+    </AppLayout>
   );
 };
-
-HomePage.displayName = 'HomePage';
 
 export default HomePage;

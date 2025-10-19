@@ -84,3 +84,8 @@ packages/
 # Documentation folder (all support & generated assets - not committed)
 Documentation/
 
+# Playwright generated files and screenshots
+.playwright-mcp/
+playwright-report/
+test-results/
+

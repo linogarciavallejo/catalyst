@@ -1,40 +1,41 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate, useLocation, Link } from 'react-router-dom';
-import { Button } from '@/components/ui';
-import { Header, Footer } from '@/components/Layout';
+import { Form, Input, Button, Card, Divider, message } from 'antd';
+import { LockOutlined, MailOutlined } from '@ant-design/icons';
+import { AppLayout } from '@/components/Layout';
 import { useAuth } from '@/hooks';
+import { improvingColors } from '@/theme/colors';
 import type { LoginRequest } from '@/services';
+
+interface LoginFormValues {
+  email: string;
+  password: string;
+  remember?: boolean;
+}
 
 /**
  * LoginPage Component
  * Handles user authentication via email and password.
  * Features:
- * - Email and password input
- * - Form validation
+ * - Professional Ant Design form
+ * - Email and password input with validation
  * - Error handling and display
  * - Redirect to intended page after login
  * - Link to registration page
+ * - Responsive layout with AppLayout
  */
 const LoginPage: React.FC = () => {
   const navigate = useNavigate();
   const location = useLocation();
   const { login, isLoading, error, isAuthenticated } = useAuth();
-
-  const [formData, setFormData] = useState<LoginRequest>({
-    email: '',
-    password: '',
-  });
-  const [validationError, setValidationError] = useState<string>('');
-  const [successMessage, setSuccessMessage] = useState<string>('');
+  const [form] = Form.useForm();
+  const [localError, setLocalError] = useState<string>('');
 
   // Check for success message from registration redirect
   useEffect(() => {
-    const message = (location.state as { message?: string })?.message;
-    if (message) {
-      setSuccessMessage(message);
-      // Auto-dismiss after 5 seconds
-      const timer = setTimeout(() => setSuccessMessage(''), 5000);
-      return () => clearTimeout(timer);
+    const message_text = (location.state as { message?: string })?.message;
+    if (message_text) {
+      message.success(message_text);
     }
   }, [location.state]);
 
@@ -46,229 +47,193 @@ const LoginPage: React.FC = () => {
     }
   }, [isAuthenticated, navigate, location]);
 
-  const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const { name, value } = e.target;
-    setFormData((prev) => ({ ...prev, [name]: value }));
-    setValidationError('');
-  };
-
-  const validateForm = (): boolean => {
-    if (!formData.email.trim()) {
-      setValidationError('Email is required');
-      return false;
-    }
-    if (!formData.email.includes('@')) {
-      setValidationError('Please enter a valid email');
-      return false;
-    }
-    if (!formData.password) {
-      setValidationError('Password is required');
-      return false;
-    }
-    return true;
-  };
-
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
-
-    if (!validateForm()) return;
+  const handleSubmit = async (values: LoginFormValues) => {
+    setLocalError('');
 
     try {
-      await login(formData);
+      const loginData: LoginRequest = {
+        email: values.email,
+        password: values.password,
+      };
+
+      await login(loginData);
+
       // Redirect to home page after successful login
-      // Don't use location.state.from for login, as it might be a protected route
       const from = (location.state as { from?: { pathname: string } })?.from?.pathname;
       const redirectTo = (from && !from.includes('/create') && !from.includes('/edit')) ? from : '/';
       navigate(redirectTo, { replace: true });
     } catch (err) {
-      // Error is handled by useAuth and displayed via error state
+      const errorMessage = error || (err instanceof Error ? err.message : 'Login failed. Please try again.');
+      setLocalError(errorMessage);
       console.error('Login error:', err);
     }
   };
 
   return (
-    <div className="min-h-screen flex flex-col bg-gray-50">
-      {/* Header */}
-      <Header
-        logo="💡"
-        title="Catalyst"
-        actions={
-          <Link to="/">
-            <Button variant="outline" size="sm">
-              Back to Home
-            </Button>
-          </Link>
-        }
-      />
-
-      {/* Main Content */}
-      <main className="flex-1 container mx-auto px-4 py-8 flex items-center justify-center">
-        <div className="w-full max-w-md">
-          {/* Login Form Card */}
-          <div className="bg-white rounded-lg shadow-md p-8">
+    <AppLayout>
+      <div
+        style={{
+          display: 'flex',
+          justifyContent: 'center',
+          alignItems: 'center',
+          minHeight: 'calc(100vh - 64px - 80px)',
+          padding: '24px',
+          background: `linear-gradient(135deg, ${improvingColors.primaryBlue}15 0%, ${improvingColors.teal}15 100%)`,
+        }}
+      >
+        <div style={{ width: '100%', maxWidth: '420px' }}>
+          <Card
+            style={{
+              boxShadow: '0 2px 12px rgba(0, 61, 165, 0.1)',
+              borderRadius: '12px',
+              border: 'none',
+            }}
+          >
             {/* Header */}
-            <div className="text-center mb-8">
-              <h1 className="text-3xl font-bold text-gray-900 mb-2">Login</h1>
-              <p className="text-gray-600">
+            <div style={{ textAlign: 'center', marginBottom: '32px' }}>
+              <h1
+                style={{
+                  fontSize: '28px',
+                  fontWeight: 600,
+                  color: improvingColors.darkCharcoal,
+                  marginBottom: '8px',
+                }}
+              >
+                Welcome Back
+              </h1>
+              <p style={{ color: improvingColors.gray500, fontSize: '14px' }}>
                 Sign in to your Catalyst account
               </p>
             </div>
 
-            {/* Success Message */}
-            {successMessage && (
-              <div className="mb-6 p-4 bg-green-50 border border-green-200 rounded-lg">
-                <p className="text-green-800 text-sm font-medium">
-                  {successMessage}
-                </p>
-              </div>
-            )}
-
-            {/* Error Messages */}
-            {(error || validationError) && (
-              <div className="mb-6 p-4 bg-red-50 border border-red-200 rounded-lg">
-                <p className="text-red-800 text-sm font-medium">
-                  {error || validationError}
-                </p>
-              </div>
-            )}
-
-            {/* Form */}
-            <form onSubmit={handleSubmit} className="space-y-4">
-              {/* Email Field */}
-              <div>
-                <label
-                  htmlFor="email"
-                  className="block text-sm font-medium text-gray-700 mb-1"
-                >
-                  Email Address
-                </label>
-                <input
-                  id="email"
-                  type="email"
-                  name="email"
-                  value={formData.email}
-                  onChange={handleChange}
-                  placeholder="you@example.com"
-                  className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-colors"
-                  disabled={isLoading}
-                  data-testid="login-email-input"
-                />
-              </div>
-
-              {/* Password Field */}
-              <div>
-                <label
-                  htmlFor="password"
-                  className="block text-sm font-medium text-gray-700 mb-1"
-                >
-                  Password
-                </label>
-                <input
-                  id="password"
-                  type="password"
-                  name="password"
-                  value={formData.password}
-                  onChange={handleChange}
-                  placeholder="••••••••"
-                  className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-colors"
-                  disabled={isLoading}
-                  data-testid="login-password-input"
-                />
-              </div>
-
-              {/* Remember Me & Forgot Password */}
-              <div className="flex items-center justify-between text-sm">
-                <label className="flex items-center gap-2 cursor-pointer">
-                  <input
-                    type="checkbox"
-                    className="w-4 h-4 border border-gray-300 rounded focus:ring-2 focus:ring-blue-500"
-                  />
-                  <span className="text-gray-700">Remember me</span>
-                </label>
-                <a href="#" className="text-blue-600 hover:text-blue-700">
-                  Forgot password?
-                </a>
-              </div>
-
-              {/* Submit Button */}
-              <Button
-                type="submit"
-                variant="primary"
-                size="lg"
-                className="w-full"
-                disabled={isLoading}
-                data-testid="login-submit"
+            {/* Error Message */}
+            {(error || localError) && (
+              <div
+                style={{
+                  marginBottom: '16px',
+                  padding: '12px',
+                  backgroundColor: '#fff2f0',
+                  border: `1px solid ${improvingColors.error}`,
+                  borderRadius: '6px',
+                  color: '#c5192d',
+                  fontSize: '14px',
+                }}
               >
-                {isLoading ? 'Signing in...' : 'Sign In'}
-              </Button>
-            </form>
+                {error || localError}
+              </div>
+            )}
+
+            {/* Login Form */}
+            <Form
+              form={form}
+              layout="vertical"
+              onFinish={handleSubmit}
+              autoComplete="off"
+              style={{ marginBottom: '16px' }}
+            >
+              <Form.Item
+                name="email"
+                label={<span style={{ fontWeight: 500, color: improvingColors.darkCharcoal }}>Email Address</span>}
+                rules={[
+                  { required: true, message: 'Email is required' },
+                  { type: 'email', message: 'Please enter a valid email' },
+                ]}
+              >
+                <Input
+                  prefix={<MailOutlined style={{ color: improvingColors.primaryBlue }} />}
+                  placeholder="you@example.com"
+                  size="large"
+                  disabled={isLoading}
+                  style={{ borderRadius: '6px' }}
+                />
+              </Form.Item>
+
+              <Form.Item
+                name="password"
+                label={<span style={{ fontWeight: 500, color: improvingColors.darkCharcoal }}>Password</span>}
+                rules={[{ required: true, message: 'Password is required' }]}
+              >
+                <Input.Password
+                  prefix={<LockOutlined style={{ color: improvingColors.primaryBlue }} />}
+                  placeholder="••••••••"
+                  size="large"
+                  disabled={isLoading}
+                  style={{ borderRadius: '6px' }}
+                />
+              </Form.Item>
+
+              <Form.Item
+                name="remember"
+                valuePropName="checked"
+                style={{ marginBottom: '16px' }}
+              >
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                  <span style={{ fontSize: '14px', color: improvingColors.gray600 }}>
+                    <input type="checkbox" /> Remember me
+                  </span>
+                  <a href="#" style={{ color: improvingColors.primaryBlue, fontSize: '14px' }}>
+                    Forgot password?
+                  </a>
+                </div>
+              </Form.Item>
+
+              <Form.Item style={{ marginBottom: 0 }}>
+                <Button
+                  type="primary"
+                  htmlType="submit"
+                  size="large"
+                  block
+                  loading={isLoading}
+                  style={{
+                    background: improvingColors.primaryBlue,
+                    borderColor: improvingColors.primaryBlue,
+                    height: '40px',
+                    fontSize: '16px',
+                    fontWeight: 600,
+                    borderRadius: '6px',
+                  }}
+                >
+                  {isLoading ? 'Signing in...' : 'Sign In'}
+                </Button>
+              </Form.Item>
+            </Form>
 
             {/* Divider */}
-            <div className="my-6 flex items-center gap-4">
-              <div className="flex-1 border-t border-gray-300"></div>
-              <span className="text-gray-500 text-sm">or</span>
-              <div className="flex-1 border-t border-gray-300"></div>
-            </div>
+            <Divider style={{ margin: '24px 0' }}>or</Divider>
 
             {/* Sign Up Link */}
-            <div className="text-center">
-              <p className="text-gray-700 text-sm">
+            <div style={{ textAlign: 'center' }}>
+              <span style={{ color: improvingColors.gray600, fontSize: '14px' }}>
                 Don't have an account?{' '}
                 <Link
                   to="/register"
-                  className="text-blue-600 hover:text-blue-700 font-medium"
+                  style={{ color: improvingColors.primaryBlue, fontWeight: 600, textDecoration: 'none' }}
                 >
                   Sign up
                 </Link>
-              </p>
+              </span>
             </div>
-          </div>
 
-          {/* Demo Credentials (for testing) */}
-          <div className="mt-8 p-4 bg-blue-50 border border-blue-200 rounded-lg">
-            <p className="text-blue-900 text-sm font-medium mb-2">
-              💡 Demo Credentials (for testing):
-            </p>
-            <code className="text-blue-800 text-xs block">
-              Email: demo@example.com
+            {/* Demo Credentials (Less Prominent) */}
+            <div
+              style={{
+                marginTop: '24px',
+                padding: '12px',
+                backgroundColor: `${improvingColors.primaryBlue}10`,
+                border: `1px solid ${improvingColors.primaryBlue}20`,
+                borderRadius: '6px',
+                fontSize: '12px',
+                color: improvingColors.gray600,
+              }}
+            >
+              <strong style={{ color: improvingColors.darkCharcoal }}>Demo Credentials (testing):</strong>
               <br />
-              Password: Demo123!
-            </code>
-          </div>
+              demo@example.com / Demo123!
+            </div>
+          </Card>
         </div>
-      </main>
-
-      {/* Footer */}
-      <Footer
-        columns={[
-          {
-            title: 'Product',
-            links: [
-              { label: 'Features', href: '#' },
-              { label: 'Pricing', href: '#' },
-              { label: 'Security', href: '#' },
-            ],
-          },
-          {
-            title: 'Company',
-            links: [
-              { label: 'About', href: '#' },
-              { label: 'Blog', href: '#' },
-              { label: 'Contact', href: '#' },
-            ],
-          },
-          {
-            title: 'Legal',
-            links: [
-              { label: 'Privacy', href: '#' },
-              { label: 'Terms', href: '#' },
-              { label: 'License', href: '#' },
-            ],
-          },
-        ]}
-        copyright="© 2025 Catalyst. All rights reserved."
-      />
-    </div>
+      </div>
+    </AppLayout>
   );
 };
 
