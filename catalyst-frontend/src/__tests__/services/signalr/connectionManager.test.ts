@@ -78,10 +78,13 @@ describe('SignalR connection manager', () => {
     expect(builders).toHaveLength(1);
     const builder = builders[0];
 
-    expect(builder.withUrl).toHaveBeenCalledWith(
-      expect.stringContaining('/signalr/chat'),
-      expect.objectContaining({ accessTokenFactory: expect.any(Function) })
-    );
+    expect(builder.withUrl).toHaveBeenCalled();
+    const [url, options] = builder.withUrl.mock.calls[0];
+    expect(url).toContain('/chat');
+    expect(options).toMatchObject({
+      accessTokenFactory: expect.any(Function),
+      withCredentials: true,
+    });
     expect(builder.build).toHaveBeenCalled();
     expect(connection.start).toHaveBeenCalled();
     expect(connectionManager.getConnection('ChatHub')).toBe(connection);
