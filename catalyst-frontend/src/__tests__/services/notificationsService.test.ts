@@ -50,20 +50,21 @@ vi.mock('@microsoft/signalr', () => ({
   JsonHubProtocol: vi.fn(),
 }));
 
-const mockApi = {
-  get: vi.fn(),
-  put: vi.fn(),
-  delete: vi.fn(),
-};
-
-const handledError = { status: 500, message: 'handled' };
+const serviceMocks = vi.hoisted(() => ({
+  api: {
+    get: vi.fn(),
+    put: vi.fn(),
+    delete: vi.fn(),
+  },
+  handle: vi.fn((error: unknown) => ({ status: 500, message: String(error) })),
+}));
 
 vi.mock('@/services/api', () => ({
   ApiClient: {
-    getInstance: () => mockApi,
+    getInstance: () => serviceMocks.api,
   },
   ApiErrorHandler: {
-    handle: vi.fn(() => handledError),
+    handle: serviceMocks.handle,
   },
   SIGNALR_URL: 'https://example.test',
 }));
@@ -72,9 +73,11 @@ describe('NotificationsService', () => {
   beforeEach(() => {
     builders.length = 0;
     vi.clearAllMocks();
-    mockApi.get.mockReset();
-    mockApi.put.mockReset();
-    mockApi.delete.mockReset();
+    serviceMocks.api.get.mockReset();
+    serviceMocks.api.put.mockReset();
+    serviceMocks.api.delete.mockReset();
+    serviceMocks.handle.mockReset();
+    serviceMocks.handle.mockImplementation((error: unknown) => ({ status: 500, message: String(error) }));
     Reflect.set(NotificationsService as unknown as Record<string, unknown>, 'connection', null);
     Reflect.set(NotificationsService as unknown as Record<string, unknown>, 'listeners', new Map());
   });
@@ -116,32 +119,32 @@ describe('NotificationsService', () => {
 
   it('proxies API calls and propagates handled errors', async () => {
     const notifications = [{ id: 'n-1' }];
-    mockApi.get
+    serviceMocks.api.get
       .mockResolvedValueOnce({ data: notifications })
       .mockResolvedValueOnce({ data: { count: 5 } });
-    mockApi.put.mockResolvedValue(undefined);
-    mockApi.delete.mockResolvedValue(undefined);
+    serviceMocks.api.put.mockResolvedValue(undefined);
+    serviceMocks.api.delete.mockResolvedValue(undefined);
 
     await expect(NotificationsService.getNotifications()).resolves.toEqual(notifications);
-    expect(mockApi.get).toHaveBeenCalledWith('/notifications');
+    expect(serviceMocks.api.get).toHaveBeenCalledWith('/notifications');
 
     await expect(NotificationsService.getUnreadCount()).resolves.toBe(5);
-    expect(mockApi.get).toHaveBeenCalledWith('/notifications/unread/count');
+    expect(serviceMocks.api.get).toHaveBeenCalledWith('/notifications/unread/count');
 
     await expect(NotificationsService.markAsRead('n-1')).resolves.toBeUndefined();
-    expect(mockApi.put).toHaveBeenCalledWith('/notifications/n-1/read');
+    expect(serviceMocks.api.put).toHaveBeenCalledWith('/notifications/n-1/read');
 
     await expect(NotificationsService.markAllAsRead()).resolves.toBeUndefined();
-    expect(mockApi.put).toHaveBeenCalledWith('/notifications/read-all');
+    expect(serviceMocks.api.put).toHaveBeenCalledWith('/notifications/read-all');
 
     await expect(NotificationsService.deleteNotification('n-1')).resolves.toBeUndefined();
-    expect(mockApi.delete).toHaveBeenCalledWith('/notifications/n-1');
+    expect(serviceMocks.api.delete).toHaveBeenCalledWith('/notifications/n-1');
 
-    const { ApiErrorHandler } = await import('@/services/api');
-    (ApiErrorHandler.handle as any).mockReturnValueOnce(handledError);
-    mockApi.get.mockRejectedValueOnce('boom');
+    const handled = { status: 500, message: 'handled' };
+    serviceMocks.handle.mockReturnValueOnce(handled);
+    serviceMocks.api.get.mockRejectedValueOnce('boom');
 
-    await expect(NotificationsService.getNotifications()).rejects.toBe(handledError);
-    expect(ApiErrorHandler.handle).toHaveBeenCalledWith('boom');
+    await expect(NotificationsService.getNotifications()).rejects.toBe(handled);
+    expect(serviceMocks.handle).toHaveBeenCalledWith('boom');
   });
 });
