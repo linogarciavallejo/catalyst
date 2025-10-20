@@ -62,10 +62,30 @@ vi.mock('antd', async (importActual) => {
     </div>
   );
 
+  const Menu = ({ items }: any) => (
+    <nav>
+      {items
+        ?.filter(Boolean)
+        .map((item: any) => (
+          <button
+            key={item.key}
+            type="button"
+            data-testid={`menu-item-${item.key}`}
+            onClick={() => {
+              item.onClick?.({ key: item.key });
+            }}
+          >
+            {item.label}
+          </button>
+        ))}
+    </nav>
+  );
+
   return {
     ...actual,
     Dropdown,
     Drawer,
+    Menu,
   };
 });
 
@@ -108,6 +128,24 @@ describe('AppLayout', () => {
     expect(localStorage.getItem('theme-mode')).toBe('dark');
     expect(document.body.classList.contains('dark-mode')).toBe(true);
     expect(document.documentElement.classList.contains('dark-mode')).toBe(true);
+
+    await act(async () => {
+      fireEvent.click(screen.getByTitle('Switch to light mode'));
+    });
+
+    expect(localStorage.getItem('theme-mode')).toBe('light');
+    expect(document.body.classList.contains('dark-mode')).toBe(false);
+    expect(document.documentElement.classList.contains('dark-mode')).toBe(false);
+  });
+
+  it('navigates through sidebar menu items for guests', () => {
+    renderLayout();
+
+    fireEvent.click(screen.getByTestId('menu-item-/'));
+    expect(navigateMock).toHaveBeenCalledWith('/');
+
+    fireEvent.click(screen.getByTestId('menu-item-/ideas'));
+    expect(navigateMock).toHaveBeenCalledWith('/ideas');
   });
 
   it('renders authenticated menu and handles logout flow', async () => {
@@ -117,9 +155,15 @@ describe('AppLayout', () => {
 
     renderLayout();
 
-    expect(screen.getByText('Browse Ideas')).toBeInTheDocument();
-    expect(screen.getByText('Chat')).toBeInTheDocument();
-    expect(screen.getByText('Notifications')).toBeInTheDocument();
+    expect(screen.getByTestId('menu-item-/ideas')).toBeInTheDocument();
+    expect(screen.getByTestId('menu-item-/chat')).toBeInTheDocument();
+    expect(screen.getByTestId('menu-item-/notifications')).toBeInTheDocument();
+
+    fireEvent.click(screen.getByTestId('menu-item-/chat'));
+    expect(navigateMock).toHaveBeenCalledWith('/chat');
+
+    fireEvent.click(screen.getByTestId('menu-item-/notifications'));
+    expect(navigateMock).toHaveBeenCalledWith('/notifications');
 
     const logoutButton = screen.getByTestId('dropdown-item-logout');
     await act(async () => {
@@ -129,5 +173,11 @@ describe('AppLayout', () => {
 
     expect(logoutMock).toHaveBeenCalledTimes(1);
     expect(navigateMock).toHaveBeenCalledWith('/login');
+
+    fireEvent.click(screen.getByTestId('dropdown-item-profile'));
+    expect(navigateMock).toHaveBeenCalledWith('/profile');
+
+    fireEvent.click(screen.getByTestId('dropdown-item-settings'));
+    expect(navigateMock).toHaveBeenCalledWith('/settings');
   });
 });
