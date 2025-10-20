@@ -1,6 +1,5 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
-import { render, screen, waitFor } from '@testing-library/react';
-import userEvent from '@testing-library/user-event';
+import { render, screen, waitFor, fireEvent } from '@testing-library/react';
 import { BrowserRouter } from 'react-router-dom';
 import RegisterPage from '@/pages/RegisterPage';
 import { useAuth } from '@/hooks';
@@ -76,7 +75,6 @@ describe('RegisterPage Component', () => {
   });
 
   it('should validate email field is required', async () => {
-    const user = userEvent.setup();
     render(
       <BrowserRouter>
         <RegisterPage />
@@ -84,7 +82,7 @@ describe('RegisterPage Component', () => {
     );
 
     const submitButton = screen.getByTestId('register-submit');
-    await user.click(submitButton);
+    fireEvent.click(submitButton);
 
     await waitFor(() => {
       expect(screen.getByText('Email is required')).toBeInTheDocument();
@@ -102,7 +100,6 @@ describe('RegisterPage Component', () => {
       isAuthenticated: false,
     });
 
-    const user = userEvent.setup();
     render(
       <BrowserRouter>
         <RegisterPage />
@@ -116,21 +113,23 @@ describe('RegisterPage Component', () => {
     const checkbox = screen.getByRole('checkbox') as HTMLInputElement;
     const submitButton = screen.getByTestId('register-submit');
 
-    await user.type(emailInput, 'test@example.com');
-    await user.type(displayNameInput, 'Test User');
-    await user.type(passwordInput, 'Password123!');
-    await user.type(confirmPasswordInput, 'Password123!');
-    await user.click(checkbox);
-    await user.click(submitButton);
+    fireEvent.change(emailInput, { target: { value: 'test@example.com' } });
+    fireEvent.change(displayNameInput, { target: { value: 'Test User' } });
+    fireEvent.change(passwordInput, { target: { value: 'Password123!' } });
+    fireEvent.change(confirmPasswordInput, { target: { value: 'Password123!' } });
+    fireEvent.click(checkbox);
+    fireEvent.click(submitButton);
 
-    expect(mockRegister).toHaveBeenCalledWith(
-      expect.objectContaining({
-        email: 'test@example.com',
-        displayName: 'Test User',
-        password: 'Password123!',
-        confirmPassword: 'Password123!',
-      })
-    );
+    await waitFor(() => {
+      expect(mockRegister).toHaveBeenCalledWith(
+        expect.objectContaining({
+          email: 'test@example.com',
+          displayName: 'Test User',
+          password: 'Password123!',
+          confirmPassword: 'Password123!',
+        })
+      );
+    });
   });
 
   it('should redirect to login page after successful registration with success message', async () => {
@@ -142,7 +141,6 @@ describe('RegisterPage Component', () => {
       isAuthenticated: false,
     });
 
-    const user = userEvent.setup();
     render(
       <BrowserRouter>
         <RegisterPage />
@@ -156,12 +154,12 @@ describe('RegisterPage Component', () => {
     const checkbox = screen.getByRole('checkbox') as HTMLInputElement;
     const submitButton = screen.getByTestId('register-submit');
 
-    await user.type(emailInput, 'test@example.com');
-    await user.type(displayNameInput, 'Test User');
-    await user.type(passwordInput, 'Password123!');
-    await user.type(confirmPasswordInput, 'Password123!');
-    await user.click(checkbox);
-    await user.click(submitButton);
+    fireEvent.change(emailInput, { target: { value: 'test@example.com' } });
+    fireEvent.change(displayNameInput, { target: { value: 'Test User' } });
+    fireEvent.change(passwordInput, { target: { value: 'Password123!' } });
+    fireEvent.change(confirmPasswordInput, { target: { value: 'Password123!' } });
+    fireEvent.click(checkbox);
+    fireEvent.click(submitButton);
 
     await waitFor(() => {
       expect(mockNavigate).toHaveBeenCalledWith('/login', {
