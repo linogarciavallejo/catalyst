@@ -1,4 +1,4 @@
-namespace Catalyst.Application.Interfaces;
+namespace Catalyst.Infrastructure;
 
 public interface IMongoDbSettings
 {
