@@ -1,8 +1,7 @@
 using Catalyst.Application.Interfaces;
 using Catalyst.Domain.Entities;
-using Catalyst.Domain.ValueObjects;
 
-namespace Catalyst.Infrastructure.Services;
+namespace Catalyst.Application.Services;
 
 public class GamificationService : IGamificationService
 {

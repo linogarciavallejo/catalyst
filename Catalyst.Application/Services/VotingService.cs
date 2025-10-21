@@ -1,9 +1,8 @@
-using System;
 using Catalyst.Application.Interfaces;
 using Catalyst.Domain.Entities;
 using Catalyst.Domain.ValueObjects;
 
-namespace Catalyst.Infrastructure.Services;
+namespace Catalyst.Application.Services;
 
 public class VotingService : IVotingService
 {
@@ -18,16 +17,13 @@ public class VotingService : IVotingService
 
     public async Task<Vote> VoteAsync(string userId, string ideaId, bool isUpvote)
     {
-        // Check if user already voted on this idea
         var existingVote = await _voteRepository.GetUserVoteOnIdeaAsync(userId, ideaId);
 
         if (existingVote != null)
         {
-            // Remove old vote
             await _voteRepository.DeleteAsync(existingVote.Id);
         }
 
-        // Create new vote
         var vote = Vote.Create(
             IdeaId.Create(ideaId),
             UserId.Create(userId),
@@ -35,7 +31,6 @@ public class VotingService : IVotingService
 
         var createdVote = await _voteRepository.AddAsync(vote);
 
-        // Update idea vote counts
         await UpdateIdeaVoteCountsAsync(ideaId);
 
         return createdVote;
@@ -50,7 +45,6 @@ public class VotingService : IVotingService
 
         var result = await _voteRepository.DeleteAsync(vote.Id);
 
-        // Update idea vote counts
         if (result)
             await UpdateIdeaVoteCountsAsync(ideaId);
 
@@ -67,9 +61,6 @@ public class VotingService : IVotingService
         return await _voteRepository.GetDownvoteCountAsync(ideaId);
     }
 
-    /// <summary>
-    /// Updates the upvote and downvote counts on the idea
-    /// </summary>
     private async Task UpdateIdeaVoteCountsAsync(string ideaId)
     {
         var idea = await _ideaRepository.GetByIdAsync(ideaId);

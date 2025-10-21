@@ -3,6 +3,7 @@ using Microsoft.Extensions.DependencyInjection;
 using Catalyst.Application.Interfaces;
 using Catalyst.Infrastructure;
 using Catalyst.Infrastructure.Repositories;
+using Catalyst.Application.Services;
 using Catalyst.Infrastructure.Services;
 using Catalyst.Infrastructure.Authentication;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
