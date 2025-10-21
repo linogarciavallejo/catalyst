@@ -68,6 +68,9 @@ describe('useComments', () => {
     getComments.mockResolvedValue([baseComment]);
     addComment.mockResolvedValue({ ...baseComment, id: 'comment-2' });
 
+    const consoleSpy = vi.spyOn(console, 'error').mockImplementation(() => {});
+    connect.mockRejectedValueOnce(new Error('connect failed'));
+
     const { result } = renderHook(() => useComments());
 
     await act(async () => {
@@ -82,6 +85,20 @@ describe('useComments', () => {
 
     expect(result.current.pendingComments).toHaveLength(0);
     expect(result.current.comments.some((c) => c.id === 'comment-2')).toBe(true);
+    expect(
+      consoleSpy.mock.calls.some(
+        ([message]) => message === 'Failed to connect to CommentsHub:'
+      )
+    ).toBe(true);
+
+    act(() => {
+      onAdded?.(baseComment);
+      onAdded?.(baseComment);
+    });
+
+    expect(result.current.comments.filter((c) => c.id === baseComment.id)).toHaveLength(1);
+
+    consoleSpy.mockRestore();
   });
 
   it('rolls back optimistic failures and exposes error state', async () => {
@@ -121,10 +138,64 @@ describe('useComments', () => {
       expect(count).toBe(5);
     });
 
-    onAdded?.({ ...baseComment, id: 'comment-3' });
-    onUpdated?.({ ...baseComment, id: 'comment-3', content: 'Realtime' });
-    onDeleted?.('comment-3');
+    act(() => {
+      onAdded?.({ ...baseComment, id: 'comment-3' });
+      onUpdated?.({ ...baseComment, id: 'comment-3', content: 'Realtime' });
+      onDeleted?.('comment-3');
+    });
 
     expect(result.current.comments.find((c) => c.id === 'comment-3')).toBeUndefined();
+  });
+
+  it('reports service failures and allows clearing error state', async () => {
+    getComments.mockRejectedValueOnce(new Error('load failed'));
+    updateComment.mockRejectedValueOnce(new Error('update failed'));
+    deleteComment.mockRejectedValueOnce(new Error('delete failed'));
+    getCommentCount.mockRejectedValueOnce(new Error('count failed'));
+    disconnect.mockRejectedValueOnce(new Error('disconnect failed'));
+
+    const consoleSpy = vi.spyOn(console, 'error').mockImplementation(() => {});
+
+    const { result, unmount } = renderHook(() => useComments());
+
+    await act(async () => {
+      await result.current.getComments('idea-1');
+    });
+    expect(result.current.error).toBe('load failed');
+
+    await act(async () => {
+      await expect(result.current.updateComment('comment-1', 'Updated')).rejects.toThrow('update failed');
+    });
+    expect(result.current.error).toBe('update failed');
+
+    await act(async () => {
+      await expect(result.current.deleteComment('comment-1')).rejects.toThrow('delete failed');
+    });
+    expect(result.current.error).toBe('delete failed');
+
+    await act(async () => {
+      await expect(result.current.getCommentCount('idea-1')).rejects.toThrow('count failed');
+    });
+    expect(result.current.error).toBe('count failed');
+
+    expect(result.current.isPending('missing')).toBe(false);
+
+    act(() => {
+      result.current.clearError();
+    });
+    expect(result.current.error).toBeNull();
+
+    await act(async () => {
+      unmount();
+      await Promise.resolve();
+    });
+
+    expect(
+      consoleSpy.mock.calls.some(
+        ([message]) => message === 'Failed to disconnect from CommentsHub:'
+      )
+    ).toBe(true);
+
+    consoleSpy.mockRestore();
   });
 });

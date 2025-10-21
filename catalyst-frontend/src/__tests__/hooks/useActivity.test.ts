@@ -13,6 +13,7 @@ const listenerRegistry: {
 } = {};
 
 const instances: Array<ReturnType<typeof createInstance>> = [];
+const overrideQueue: Array<Partial<ReturnType<typeof createInstance>>> = [];
 
 function createInstance() {
   return {
@@ -38,19 +39,36 @@ function createInstance() {
   };
 }
 
+const queueActivityOverride = (
+  override: Partial<ReturnType<typeof createInstance>>
+) => {
+  overrideQueue.push(override);
+};
+
 vi.mock('@/services/signalr/hubs/activityHub', () => ({
   ActivityHub: vi.fn(() => {
     const instance = createInstance();
+    const override = overrideQueue.shift();
+    if (override) {
+      Object.assign(instance, override);
+    }
     instances.push(instance);
     return instance;
   }),
 }));
+
+const flushMicrotasks = async () => {
+  await act(async () => {
+    await Promise.resolve();
+  });
+};
 
 describe('useActivity', () => {
   beforeEach(() => {
     vi.useFakeTimers();
     instances.length = 0;
     Object.keys(listenerRegistry).forEach((key) => delete listenerRegistry[key as keyof typeof listenerRegistry]);
+    overrideQueue.length = 0;
   });
 
   afterEach(() => {
@@ -79,6 +97,24 @@ describe('useActivity', () => {
     });
 
     expect(result.current.typingUsers['idea-1']).toEqual([]);
+  });
+
+  it('clears typing timers when the hub reports a stop event', async () => {
+    const clearSpy = vi.spyOn(global, 'clearTimeout');
+    renderHook(() => useActivity());
+
+    act(() => {
+      listenerRegistry.typing?.('user-1', 'Ada', 'idea-1');
+    });
+
+    await flushMicrotasks();
+
+    act(() => {
+      listenerRegistry.stoppedTyping?.('user-1', 'idea-1');
+    });
+
+    expect(clearSpy).toHaveBeenCalled();
+    clearSpy.mockRestore();
   });
 
   it('updates viewing and active users and removes idle participants', () => {
@@ -132,5 +168,59 @@ describe('useActivity', () => {
 
     const finalInstance = instances.at(-1)!;
     expect(finalInstance.disconnect).toHaveBeenCalled();
+  });
+
+  it('logs hub errors when operations fail', async () => {
+    const consoleSpy = vi.spyOn(console, 'error').mockImplementation(() => {});
+    queueActivityOverride({
+      disconnect: vi.fn().mockRejectedValue(new Error('disconnect error')),
+    });
+
+    const { result, unmount } = renderHook(() => useActivity());
+
+    queueActivityOverride({
+      sendTypingActivity: vi.fn().mockRejectedValue(new Error('start fail')),
+    });
+    act(() => {
+      result.current.startTyping('idea-1');
+    });
+    await flushMicrotasks();
+
+    queueActivityOverride({
+      sendTypingActivity: vi.fn().mockRejectedValue(new Error('stop fail')),
+    });
+    act(() => {
+      result.current.stopTyping('idea-1');
+    });
+    await flushMicrotasks();
+
+    queueActivityOverride({
+      sendViewingActivity: vi.fn().mockRejectedValue(new Error('view fail')),
+    });
+    act(() => {
+      result.current.setViewingIdea('idea-1');
+    });
+    await flushMicrotasks();
+
+    queueActivityOverride({
+      sendIdleActivity: vi.fn().mockRejectedValue(new Error('idle fail')),
+    });
+    act(() => {
+      result.current.setIdle();
+    });
+    await flushMicrotasks();
+
+    act(() => {
+      unmount();
+    });
+    await flushMicrotasks();
+
+    expect(consoleSpy.mock.calls.some(([message]) => message.includes('Failed to send typing activity'))).toBe(true);
+    expect(consoleSpy.mock.calls.some(([message]) => message.includes('Failed to send stop typing activity'))).toBe(true);
+    expect(consoleSpy.mock.calls.some(([message]) => message.includes('Failed to send viewing activity'))).toBe(true);
+    expect(consoleSpy.mock.calls.some(([message]) => message.includes('Failed to send idle activity'))).toBe(true);
+    expect(consoleSpy.mock.calls.some(([message]) => message.includes('Failed to disconnect from ActivityHub'))).toBe(true);
+
+    consoleSpy.mockRestore();
   });
 });
