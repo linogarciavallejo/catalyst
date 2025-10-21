@@ -95,10 +95,18 @@ describe('useChat', () => {
 
     const message = { id: 'm1', content: 'hello' } as ChatMessage;
     act(() => {
+      chatMocks.listeners.get('connected')?.();
       chatMocks.listeners.get('messageReceived')?.(message);
     });
 
     expect(result.current.messages).toEqual([message]);
+    expect(result.current.isConnected).toBe(true);
+
+    act(() => {
+      chatMocks.listeners.get('disconnected')?.();
+    });
+
+    expect(result.current.isConnected).toBe(false);
   });
 
   it('cleans up listeners and state on disconnect', async () => {

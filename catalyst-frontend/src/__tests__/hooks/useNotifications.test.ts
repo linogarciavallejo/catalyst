@@ -89,11 +89,19 @@ describe('useNotifications', () => {
     expect(notificationMocks.onMock).toHaveBeenCalledTimes(3);
 
     act(() => {
+      notificationMocks.listeners.get('connected')?.();
       notificationMocks.listeners.get('notificationReceived')?.(baseNotification);
     });
 
     expect(result.current.notifications[0]).toEqual(baseNotification);
     expect(result.current.unreadCount).toBe(1);
+    expect(result.current.isConnected).toBe(true);
+
+    act(() => {
+      notificationMocks.listeners.get('disconnected')?.();
+    });
+
+    expect(result.current.isConnected).toBe(false);
   });
 
   it('clears listeners and state when disconnecting', async () => {
