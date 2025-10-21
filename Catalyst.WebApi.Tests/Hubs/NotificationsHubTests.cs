@@ -1,7 +1,7 @@
 using Microsoft.AspNetCore.SignalR;
 using NSubstitute;
+using Catalyst.Application.Security;
 using Catalyst.WebApi.Hubs;
-using Catalyst.Infrastructure.Authentication;
 
 namespace Catalyst.WebApi.Tests.Hubs;
 

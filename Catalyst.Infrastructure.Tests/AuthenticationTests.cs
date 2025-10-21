@@ -1,7 +1,8 @@
 using NSubstitute;
+using Catalyst.Application.Interfaces;
+using Catalyst.Application.Security;
 using Catalyst.Infrastructure.Authentication;
 using Catalyst.Infrastructure.Services;
-using Catalyst.Application.Interfaces;
 using FluentAssertions;
 using Microsoft.Extensions.Options;
 using Microsoft.AspNetCore.Http;

@@ -1,4 +1,5 @@
 using System.Security.Claims;
+using Catalyst.Application.Security;
 using Microsoft.AspNetCore.Http;
 
 namespace Catalyst.Infrastructure.Authentication;
