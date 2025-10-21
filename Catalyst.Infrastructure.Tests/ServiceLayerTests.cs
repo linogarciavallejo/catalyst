@@ -1,9 +1,11 @@
+using System;
+using System.Collections.Generic;
 using Catalyst.Application.Interfaces;
 using Catalyst.Domain.Entities;
+using Catalyst.Domain.Enums;
 using Catalyst.Domain.ValueObjects;
 using Catalyst.Infrastructure.Services;
 using FluentAssertions;
-using MongoDB.Bson;
 using NSubstitute;
 using NSubstitute.ReturnsExtensions;
 
@@ -18,6 +20,24 @@ public class IdeaServiceTests
     private readonly IGamificationService _gamificationService;
     private readonly IdeaService _ideaService;
 
+    private static Idea CreateIdea()
+        => Idea.Create(
+            IdeaTitle.Create("Test Idea"),
+            IdeaDescription.Create("Test Description"),
+            Category.Technology,
+            Tags.Create(new[] { "test" }),
+            UserId.Create("507f1f77bcf86cd799439011"),
+            "Test User");
+
+    private static Idea CreateIdeaWithTitle(string title)
+    {
+        var idea = CreateIdea();
+        idea.Title = IdeaTitle.Create(title);
+        return idea;
+    }
+
+    private static string NewId() => Guid.NewGuid().ToString("N");
+
     public IdeaServiceTests()
     {
         _ideaRepository = Substitute.For<IIdeaRepository>();
@@ -29,14 +49,7 @@ public class IdeaServiceTests
     public async Task CreateIdeaAsync_WithValidIdea_SavesAndAwardsPoints()
     {
         // Arrange
-        var idea = new Idea
-        {
-            Title = IdeaTitle.Create("Test Idea"),
-            Description = IdeaDescription.Create("Test Description"),
-            CreatedBy = UserId.Create("507f1f77bcf86cd799439011"),
-            Category = Category.Technology,
-            Tags = Tags.Create(new[] { "test" })
-        };
+        var idea = CreateIdea();
 
         _ideaRepository.AddAsync(idea).Returns(idea);
         _gamificationService.AwardPointsAsync("507f1f77bcf86cd799439011", 50).Returns(50);
@@ -54,12 +67,8 @@ public class IdeaServiceTests
     public async Task CreateIdeaAsync_WithNullTitle_ThrowsException()
     {
         // Arrange
-        var idea = new Idea
-        {
-            Title = null!,
-            Description = IdeaDescription.Create("Test Description"),
-            CreatedBy = UserId.Create("507f1f77bcf86cd799439011")
-        };
+        var idea = CreateIdea();
+        idea.Title = null!;
 
         // Act
         var action = () => _ideaService.CreateIdeaAsync(idea);
@@ -72,12 +81,8 @@ public class IdeaServiceTests
     public async Task CreateIdeaAsync_WithNullDescription_ThrowsException()
     {
         // Arrange
-        var idea = new Idea
-        {
-            Title = IdeaTitle.Create("Test Idea"),
-            Description = null!,
-            CreatedBy = UserId.Create("507f1f77bcf86cd799439011")
-        };
+        var idea = CreateIdea();
+        idea.Description = null!;
 
         // Act
         var action = () => _ideaService.CreateIdeaAsync(idea);
@@ -90,12 +95,10 @@ public class IdeaServiceTests
     public async Task GetIdeaByIdAsync_WithValidId_ReturnsIdea()
     {
         // Arrange
-        var ideaId = ObjectId.GenerateNewId().ToString();
-        var idea = new Idea
-        {
-            Id = IdeaId.Create(ideaId),
-            Title = IdeaTitle.Create("Test Idea")
-        };
+        var ideaId = NewId();
+        var idea = CreateIdea();
+        idea.AssignId(IdeaId.Create(ideaId));
+        idea.Title = IdeaTitle.Create("Test Idea");
 
         _ideaRepository.GetByIdAsync(ideaId).Returns(idea);
 
@@ -112,7 +115,7 @@ public class IdeaServiceTests
     public async Task GetIdeaByIdAsync_WithInvalidId_ReturnsNull()
     {
         // Arrange
-        var ideaId = ObjectId.GenerateNewId().ToString();
+        var ideaId = NewId();
         _ideaRepository.GetByIdAsync(ideaId).ReturnsNull();
 
         // Act
@@ -129,7 +132,7 @@ public class IdeaServiceTests
         var searchTerm = "innovation";
         var ideas = new List<Idea>
         {
-            new() { Title = IdeaTitle.Create("Innovation Idea") }
+            CreateIdeaWithTitle("Innovation Idea")
         };
 
         _ideaRepository.SearchByTitleAsync(searchTerm).Returns(ideas);
@@ -148,8 +151,8 @@ public class IdeaServiceTests
         // Arrange
         var ideas = new List<Idea>
         {
-            new() { Title = IdeaTitle.Create("Idea 1") },
-            new() { Title = IdeaTitle.Create("Idea 2") }
+            CreateIdeaWithTitle("Idea 1"),
+            CreateIdeaWithTitle("Idea 2")
         };
 
         _ideaRepository.GetAllAsync().Returns(ideas);
@@ -169,8 +172,9 @@ public class IdeaServiceTests
         var category = "Technology";
         var ideas = new List<Idea>
         {
-            new() { Title = IdeaTitle.Create("Tech Idea"), Category = Category.Technology }
+            CreateIdeaWithTitle("Tech Idea")
         };
+        ideas[0].Category = Category.Technology;
 
         _ideaRepository.GetByCategoryAsync(category).Returns(ideas);
 
@@ -186,7 +190,7 @@ public class IdeaServiceTests
     public async Task UpdateIdeaAsync_WithValidIdea_CallsRepository()
     {
         // Arrange
-        var idea = new Idea { Title = IdeaTitle.Create("Updated Idea") };
+        var idea = CreateIdeaWithTitle("Updated Idea");
         _ideaRepository.UpdateAsync(idea).Returns(idea);
 
         // Act
@@ -201,13 +205,11 @@ public class IdeaServiceTests
     public async Task DeleteIdeaAsync_WithExistingIdea_DeductsPointsAndDeletes()
     {
         // Arrange
-        var ideaId = ObjectId.GenerateNewId().ToString();
+        var ideaId = NewId();
         var creatorId = "507f1f77bcf86cd799439011";
-        var idea = new Idea
-        {
-            Id = IdeaId.Create(ideaId),
-            CreatedBy = UserId.Create(creatorId)
-        };
+        var idea = CreateIdea();
+        idea.AssignId(IdeaId.Create(ideaId));
+        idea.CreatedBy = UserId.Create(creatorId);
 
         _ideaRepository.GetByIdAsync(ideaId).Returns(idea);
         _ideaRepository.DeleteAsync(ideaId).Returns(true);
@@ -226,7 +228,7 @@ public class IdeaServiceTests
     public async Task DeleteIdeaAsync_WithNonexistentIdea_ReturnsFalse()
     {
         // Arrange
-        var ideaId = ObjectId.GenerateNewId().ToString();
+        var ideaId = NewId();
         _ideaRepository.GetByIdAsync(ideaId).ReturnsNull();
 
         // Act
@@ -244,8 +246,8 @@ public class IdeaServiceTests
         // Arrange
         var ideas = new List<Idea>
         {
-            new() { Title = IdeaTitle.Create("Top Idea 1") },
-            new() { Title = IdeaTitle.Create("Top Idea 2") }
+            CreateIdeaWithTitle("Top Idea 1"),
+            CreateIdeaWithTitle("Top Idea 2")
         };
 
         _ideaRepository.GetTopIdeasByVotesAsync(10).Returns(ideas);
@@ -262,7 +264,7 @@ public class IdeaServiceTests
     public async Task GetTopIdeasAsync_WithCustomLimit_CallsRepositoryWithCustomLimit()
     {
         // Arrange
-        var ideas = new List<Idea> { new() { Title = IdeaTitle.Create("Top Idea") } };
+        var ideas = new List<Idea> { CreateIdeaWithTitle("Top Idea") };
         _ideaRepository.GetTopIdeasByVotesAsync(5).Returns(ideas);
 
         // Act
@@ -283,6 +285,21 @@ public class VotingServiceTests
     private readonly IIdeaRepository _ideaRepository;
     private readonly VotingService _votingService;
 
+    private static Idea CreateIdea()
+        => Idea.Create(
+            IdeaTitle.Create("Vote Idea"),
+            IdeaDescription.Create("Description"),
+            Category.Technology,
+            Tags.Create(new[] { "tag" }),
+            UserId.Create("507f1f77bcf86cd799439022"),
+            "Voter");
+
+    private static Vote CreateVote(string ideaId, string userId, VoteType type)
+        => Vote.Create(
+            IdeaId.Create(ideaId),
+            UserId.Create(userId),
+            type);
+
     public VotingServiceTests()
     {
         _voteRepository = Substitute.For<IVoteRepository>();
@@ -295,20 +312,17 @@ public class VotingServiceTests
     {
         // Arrange
         var userId = "507f1f77bcf86cd799439011";
-        var ideaId = ObjectId.GenerateNewId().ToString();
-        var vote = new Vote
-        {
-            IdeaId = IdeaId.Create(ideaId),
-            UserId = UserId.Create(userId),
-            VoteType = VoteType.Upvote
-        };
+        var ideaId = NewId();
+        var vote = CreateVote(ideaId, userId, VoteType.Upvote);
 
         _voteRepository.GetUserVoteOnIdeaAsync(userId, ideaId).ReturnsNull();
         _voteRepository.AddAsync(Arg.Any<Vote>()).Returns(vote);
         _voteRepository.GetUpvoteCountAsync(ideaId).Returns(1);
         _voteRepository.GetDownvoteCountAsync(ideaId).Returns(0);
 
-        var idea = new Idea { Upvotes = 0, Downvotes = 0 };
+        var idea = CreateIdea();
+        idea.Upvotes = 0;
+        idea.Downvotes = 0;
         _ideaRepository.GetByIdAsync(ideaId).Returns(idea);
         _ideaRepository.UpdateAsync(Arg.Any<Idea>()).Returns(idea);
 
@@ -326,18 +340,15 @@ public class VotingServiceTests
     {
         // Arrange
         var userId = "507f1f77bcf86cd799439011";
-        var ideaId = ObjectId.GenerateNewId().ToString();
-        var vote = new Vote
-        {
-            VoteType = VoteType.Downvote
-        };
+        var ideaId = NewId();
+        var vote = CreateVote(ideaId, userId, VoteType.Downvote);
 
         _voteRepository.GetUserVoteOnIdeaAsync(userId, ideaId).ReturnsNull();
         _voteRepository.AddAsync(Arg.Any<Vote>()).Returns(vote);
         _voteRepository.GetUpvoteCountAsync(ideaId).Returns(0);
         _voteRepository.GetDownvoteCountAsync(ideaId).Returns(1);
 
-        var idea = new Idea { Upvotes = 0, Downvotes = 0 };
+        var idea = CreateIdea();
         _ideaRepository.GetByIdAsync(ideaId).Returns(idea);
         _ideaRepository.UpdateAsync(Arg.Any<Idea>()).Returns(idea);
 
@@ -353,9 +364,10 @@ public class VotingServiceTests
     {
         // Arrange
         var userId = "507f1f77bcf86cd799439011";
-        var ideaId = ObjectId.GenerateNewId().ToString();
-        var oldVote = new Vote { Id = "oldVoteId", VoteType = VoteType.Downvote };
-        var newVote = new Vote { VoteType = VoteType.Upvote };
+        var ideaId = NewId();
+        var oldVote = CreateVote(ideaId, userId, VoteType.Downvote);
+        oldVote.AssignId("oldVoteId");
+        var newVote = CreateVote(ideaId, userId, VoteType.Upvote);
 
         _voteRepository.GetUserVoteOnIdeaAsync(userId, ideaId).Returns(oldVote);
         _voteRepository.DeleteAsync("oldVoteId").Returns(true);
@@ -363,7 +375,9 @@ public class VotingServiceTests
         _voteRepository.GetUpvoteCountAsync(ideaId).Returns(1);
         _voteRepository.GetDownvoteCountAsync(ideaId).Returns(0);
 
-        var idea = new Idea { Upvotes = 0, Downvotes = 1 };
+        var idea = CreateIdea();
+        idea.Upvotes = 0;
+        idea.Downvotes = 1;
         _ideaRepository.GetByIdAsync(ideaId).Returns(idea);
         _ideaRepository.UpdateAsync(Arg.Any<Idea>()).Returns(idea);
 
@@ -380,15 +394,18 @@ public class VotingServiceTests
     {
         // Arrange
         var userId = "507f1f77bcf86cd799439011";
-        var ideaId = ObjectId.GenerateNewId().ToString();
-        var vote = new Vote { Id = "voteId", VoteType = VoteType.Upvote };
+        var ideaId = NewId();
+        var vote = CreateVote(ideaId, userId, VoteType.Upvote);
+        vote.AssignId("voteId");
 
         _voteRepository.GetUserVoteOnIdeaAsync(userId, ideaId).Returns(vote);
         _voteRepository.DeleteAsync("voteId").Returns(true);
         _voteRepository.GetUpvoteCountAsync(ideaId).Returns(0);
         _voteRepository.GetDownvoteCountAsync(ideaId).Returns(0);
 
-        var idea = new Idea { Upvotes = 1, Downvotes = 0 };
+        var idea = CreateIdea();
+        idea.Upvotes = 1;
+        idea.Downvotes = 0;
         _ideaRepository.GetByIdAsync(ideaId).Returns(idea);
         _ideaRepository.UpdateAsync(Arg.Any<Idea>()).Returns(idea);
 
@@ -406,7 +423,7 @@ public class VotingServiceTests
     {
         // Arrange
         var userId = "507f1f77bcf86cd799439011";
-        var ideaId = ObjectId.GenerateNewId().ToString();
+        var ideaId = NewId();
 
         _voteRepository.GetUserVoteOnIdeaAsync(userId, ideaId).ReturnsNull();
 
@@ -422,7 +439,7 @@ public class VotingServiceTests
     public async Task GetUpvoteCountAsync_ReturnsCount()
     {
         // Arrange
-        var ideaId = ObjectId.GenerateNewId().ToString();
+        var ideaId = NewId();
         _voteRepository.GetUpvoteCountAsync(ideaId).Returns(5);
 
         // Act
@@ -436,7 +453,7 @@ public class VotingServiceTests
     public async Task GetDownvoteCountAsync_ReturnsCount()
     {
         // Arrange
-        var ideaId = ObjectId.GenerateNewId().ToString();
+        var ideaId = NewId();
         _voteRepository.GetDownvoteCountAsync(ideaId).Returns(2);
 
         // Act
@@ -466,11 +483,14 @@ public class GamificationServiceTests
     {
         // Arrange
         var userId = "507f1f77bcf86cd799439011";
-        var user = new User
-        {
-            Id = UserId.Create(userId),
-            EipPoints = EipPoints.Create(100)
-        };
+        var user = User.Create(
+            Email.Create("user@example.com"),
+            "Test User",
+            "hash",
+            "Test",
+            UserRole.Contributor);
+        user.AssignId(UserId.Create(userId));
+        user.EipPoints = EipPoints.Create(100);
 
         _userRepository.GetByIdAsync(userId).Returns(user);
         _userRepository.UpdateAsync(Arg.Any<User>()).Returns(user);
@@ -503,12 +523,15 @@ public class GamificationServiceTests
         // Arrange
         var userId = "507f1f77bcf86cd799439011";
         var beforeTime = DateTime.UtcNow;
-        var user = new User
-        {
-            Id = UserId.Create(userId),
-            EipPoints = EipPoints.Create(100),
-            UpdatedAt = beforeTime
-        };
+        var user = User.Create(
+            Email.Create("user@example.com"),
+            "Test User",
+            "hash",
+            "Test",
+            UserRole.Contributor);
+        user.AssignId(UserId.Create(userId));
+        user.EipPoints = EipPoints.Create(100);
+        user.UpdatedAt = beforeTime;
 
         _userRepository.GetByIdAsync(userId).Returns(user);
         User? capturedUser = null;
@@ -526,11 +549,14 @@ public class GamificationServiceTests
     {
         // Arrange
         var userId = "507f1f77bcf86cd799439011";
-        var user = new User
-        {
-            Id = UserId.Create(userId),
-            EipPoints = EipPoints.Create(100)
-        };
+        var user = User.Create(
+            Email.Create("user@example.com"),
+            "Test User",
+            "hash",
+            "Test",
+            UserRole.Contributor);
+        user.AssignId(UserId.Create(userId));
+        user.EipPoints = EipPoints.Create(100);
 
         _userRepository.GetByIdAsync(userId).Returns(user);
         _userRepository.UpdateAsync(Arg.Any<User>()).Returns(user);
@@ -548,11 +574,14 @@ public class GamificationServiceTests
     {
         // Arrange
         var userId = "507f1f77bcf86cd799439011";
-        var user = new User
-        {
-            Id = UserId.Create(userId),
-            EipPoints = EipPoints.Create(50)
-        };
+        var user = User.Create(
+            Email.Create("user@example.com"),
+            "Test User",
+            "hash",
+            "Test",
+            UserRole.Contributor);
+        user.AssignId(UserId.Create(userId));
+        user.EipPoints = EipPoints.Create(50);
 
         _userRepository.GetByIdAsync(userId).Returns(user);
         _userRepository.UpdateAsync(Arg.Any<User>()).Returns(user);
@@ -583,11 +612,14 @@ public class GamificationServiceTests
     {
         // Arrange
         var userId = "507f1f77bcf86cd799439011";
-        var user = new User
-        {
-            Id = UserId.Create(userId),
-            EipPoints = EipPoints.Create(250)
-        };
+        var user = User.Create(
+            Email.Create("user@example.com"),
+            "Test User",
+            "hash",
+            "Test",
+            UserRole.Contributor);
+        user.AssignId(UserId.Create(userId));
+        user.EipPoints = EipPoints.Create(250);
 
         _userRepository.GetByIdAsync(userId).Returns(user);
 

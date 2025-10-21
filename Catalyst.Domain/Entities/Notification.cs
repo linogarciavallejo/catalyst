@@ -1,40 +1,94 @@
-using MongoDB.Bson;
-using MongoDB.Bson.Serialization.Attributes;
+using System;
 using Catalyst.Domain.ValueObjects;
 
 namespace Catalyst.Domain.Entities;
 
 public class Notification
 {
-    [BsonId]
     public string Id { get; set; }
 
-    [BsonElement("userId")]
     public UserId UserId { get; set; }
 
-    [BsonElement("type")]
     public NotificationType Type { get; set; }
 
-    [BsonElement("title")]
     public string Title { get; set; }
 
-    [BsonElement("message")]
     public string Message { get; set; }
 
-    [BsonElement("relatedIdeaId")]
-    public IdeaId RelatedIdeaId { get; set; }
+    public IdeaId? RelatedIdeaId { get; set; }
 
-    [BsonElement("isRead")]
     public bool IsRead { get; set; }
 
-    [BsonElement("createdAt")]
     public DateTime CreatedAt { get; set; }
 
     public Notification()
     {
-        Id = ObjectId.GenerateNewId().ToString();
-        IsRead = false;
-        CreatedAt = DateTime.UtcNow;
+        // Parameterless constructor required for serialization and materialization
+    }
+
+    private Notification(
+        UserId userId,
+        NotificationType type,
+        string title,
+        string message,
+        IdeaId? relatedIdeaId,
+        bool isRead,
+        DateTime createdAt)
+    {
+        UserId = userId;
+        Type = type;
+        Title = title;
+        Message = message;
+        RelatedIdeaId = relatedIdeaId;
+        IsRead = isRead;
+        CreatedAt = createdAt;
+    }
+
+    public static Notification Create(
+        UserId userId,
+        NotificationType type,
+        string title,
+        string message,
+        IdeaId? relatedIdeaId = null)
+    {
+        return new Notification(
+            userId,
+            type,
+            title,
+            message,
+            relatedIdeaId,
+            false,
+            DateTime.UtcNow);
+    }
+
+    public static Notification Rehydrate(
+        string id,
+        UserId userId,
+        NotificationType type,
+        string title,
+        string message,
+        IdeaId? relatedIdeaId,
+        bool isRead,
+        DateTime createdAt)
+    {
+        var notification = new Notification(
+            userId,
+            type,
+            title,
+            message,
+            relatedIdeaId,
+            isRead,
+            createdAt)
+        {
+            Id = id
+        };
+
+        return notification;
+    }
+
+    public void AssignId(string id)
+    {
+        Id = id;
     }
 }
 

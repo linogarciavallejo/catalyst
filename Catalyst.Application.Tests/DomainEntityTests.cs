@@ -1,8 +1,9 @@
+using System;
+using System.Linq;
 using Catalyst.Domain.Entities;
 using Catalyst.Domain.Enums;
 using Catalyst.Domain.ValueObjects;
 using FluentAssertions;
-using MongoDB.Bson;
 
 namespace Catalyst.Application.Tests.Entities;
 
@@ -11,17 +12,26 @@ namespace Catalyst.Application.Tests.Entities;
 /// </summary>
 public class IdeaEntityTests
 {
+    private static Idea CreateIdea()
+        => Idea.Create(
+            IdeaTitle.Create("Test Idea"),
+            IdeaDescription.Create("This is a test idea"),
+            Category.Technology,
+            Tags.Create(new[] { "innovation" }),
+            UserId.Create("507f1f77bcf86cd799439011"),
+            "Test User");
+
     [Fact]
-    public void Constructor_InitializesWithDefaults()
+    public void Factory_InitializesWithDefaults()
     {
         // Act
-        var idea = new Idea();
+        var idea = CreateIdea();
 
         // Assert
-        idea.Id.Should().NotBeNull();
+        idea.Id.Should().BeNull();
         idea.Status.Should().Be(IdeaStatus.Submitted);
         idea.CreatedAt.Should().BeCloseTo(DateTime.UtcNow, TimeSpan.FromSeconds(1));
-        idea.UpdatedAt.Should().BeCloseTo(DateTime.UtcNow, TimeSpan.FromSeconds(1));
+        idea.UpdatedAt.Should().BeCloseTo(idea.CreatedAt, TimeSpan.FromSeconds(1));
         idea.Upvotes.Should().Be(0);
         idea.Downvotes.Should().Be(0);
         idea.CommentCount.Should().Be(0);
@@ -30,196 +40,76 @@ public class IdeaEntityTests
     }
 
     [Fact]
-    public void SetProperties_UpdatesValues()
+    public void Properties_CanBeUpdated()
     {
         // Arrange
-        var idea = new Idea();
-        var title = IdeaTitle.Create("Test Idea");
-        var description = IdeaDescription.Create("This is a test idea");
-        var category = Category.Technology;
-        var userId = UserId.Create("507f1f77bcf86cd799439011");
+        var idea = CreateIdea();
+        var newTitle = IdeaTitle.Create("Updated Idea");
+        var newDescription = IdeaDescription.Create("Updated description");
+        var newCategory = Category.Innovation;
+        var newTags = Tags.Create(new[] { "updated" });
 
         // Act
-        idea.Title = title;
-        idea.Description = description;
-        idea.Category = category;
-        idea.CreatedBy = userId;
-
-        // Assert
-        idea.Title.Should().Be(title);
-        idea.Description.Should().Be(description);
-        idea.Category.Should().Be(category);
-        idea.CreatedBy.Should().Be(userId);
-    }
-
-    [Fact]
-    public void IncrementUpvotes_UpdatesCount()
-    {
-        // Arrange
-        var idea = new Idea();
+        idea.Title = newTitle;
+        idea.Description = newDescription;
+        idea.Category = newCategory;
+        idea.Tags = newTags;
         idea.Upvotes = 5;
-
-        // Act
-        idea.Upvotes++;
+        idea.Downvotes = 1;
+        idea.CommentCount = 2;
 
         // Assert
-        idea.Upvotes.Should().Be(6);
+        idea.Title.Should().Be(newTitle);
+        idea.Description.Should().Be(newDescription);
+        idea.Category.Should().Be(newCategory);
+        idea.Tags.Should().Be(newTags);
+        idea.Upvotes.Should().Be(5);
+        idea.Downvotes.Should().Be(1);
+        idea.CommentCount.Should().Be(2);
     }
 
     [Fact]
-    public void IncrementDownvotes_UpdatesCount()
+    public void Followers_CanBeManaged()
     {
         // Arrange
-        var idea = new Idea();
-        idea.Downvotes = 3;
+        var idea = CreateIdea();
+        var follower = UserId.Create("507f1f77bcf86cd799439099");
 
         // Act
-        idea.Downvotes++;
+        idea.Followers.Add(follower);
+        idea.Followers.Remove(follower);
 
         // Assert
-        idea.Downvotes.Should().Be(4);
-    }
-
-    [Fact]
-    public void AddFollower_AddsUserToFollowers()
-    {
-        // Arrange
-        var idea = new Idea();
-        var userId = UserId.Create("507f1f77bcf86cd799439011");
-
-        // Act
-        idea.Followers.Add(userId);
-
-        // Assert
-        idea.Followers.Should().Contain(userId);
-        idea.Followers.Should().HaveCount(1);
-    }
-
-    [Fact]
-    public void AddMultipleFollowers_AllAdded()
-    {
-        // Arrange
-        var idea = new Idea();
-        var userId1 = UserId.Create("507f1f77bcf86cd799439011");
-        var userId2 = UserId.Create("507f1f77bcf86cd799439012");
-        var userId3 = UserId.Create("507f1f77bcf86cd799439013");
-
-        // Act
-        idea.Followers.Add(userId1);
-        idea.Followers.Add(userId2);
-        idea.Followers.Add(userId3);
-
-        // Assert
-        idea.Followers.Should().HaveCount(3);
-        idea.Followers.Should().Contain(new[] { userId1, userId2, userId3 });
-    }
-
-    [Fact]
-    public void RemoveFollower_RemovesUserFromFollowers()
-    {
-        // Arrange
-        var idea = new Idea();
-        var userId = UserId.Create("507f1f77bcf86cd799439011");
-        idea.Followers.Add(userId);
-
-        // Act
-        idea.Followers.Remove(userId);
-
-        // Assert
-        idea.Followers.Should().NotContain(userId);
         idea.Followers.Should().BeEmpty();
     }
 
     [Fact]
-    public void AddAttachment_AddsToList()
+    public void Attachments_CanBeManaged()
     {
         // Arrange
-        var idea = new Idea();
-        var attachment = new Attachment
-        {
-            FileName = "document.pdf",
-            FileUrl = "https://example.com/document.pdf",
-            FileSize = 1024000,
-            UploadedAt = DateTime.UtcNow
-        };
+        var idea = CreateIdea();
+        var attachment = Attachment.Create("document.pdf", "https://example.com/document.pdf", 1024, DateTime.UtcNow);
 
         // Act
         idea.Attachments.Add(attachment);
 
         // Assert
-        idea.Attachments.Should().HaveCount(1);
+        idea.Attachments.Should().ContainSingle();
         idea.Attachments.First().FileName.Should().Be("document.pdf");
     }
 
     [Fact]
-    public void MultipleAttachments_AllAdded()
+    public void AssignId_SetsIdentifier()
     {
         // Arrange
-        var idea = new Idea();
-        var attachment1 = new Attachment { FileName = "file1.pdf" };
-        var attachment2 = new Attachment { FileName = "file2.docx" };
-        var attachment3 = new Attachment { FileName = "file3.xlsx" };
+        var idea = CreateIdea();
+        var id = IdeaId.Create("507f1f77bcf86cd799439012");
 
         // Act
-        idea.Attachments.Add(attachment1);
-        idea.Attachments.Add(attachment2);
-        idea.Attachments.Add(attachment3);
+        idea.AssignId(id);
 
         // Assert
-        idea.Attachments.Should().HaveCount(3);
-    }
-
-    [Fact]
-    public void ChangeStatus_UpdatesStatus()
-    {
-        // Arrange
-        var idea = new Idea();
-        var newStatus = IdeaStatus.Approved;
-
-        // Act
-        idea.Status = newStatus;
-
-        // Assert
-        idea.Status.Should().Be(IdeaStatus.Approved);
-    }
-
-    [Fact]
-    public void SetChampionId_AssignsChampion()
-    {
-        // Arrange
-        var idea = new Idea();
-        var championId = UserId.Create("507f1f77bcf86cd799439099");
-
-        // Act
-        idea.ChampionId = championId;
-
-        // Assert
-        idea.ChampionId.Should().Be(championId);
-    }
-
-    [Fact]
-    public void IncrementCommentCount_UpdatesCount()
-    {
-        // Arrange
-        var idea = new Idea();
-        idea.CommentCount = 5;
-
-        // Act
-        idea.CommentCount++;
-
-        // Assert
-        idea.CommentCount.Should().Be(6);
-    }
-
-    [Fact]
-    public void TwoIdeas_WithDifferentIds_AreNotEqual()
-    {
-        // Arrange
-        var idea1 = new Idea();
-        var idea2 = new Idea();
-
-        // Act & Assert
-        idea1.Id.Should().NotBe(idea2.Id);
+        idea.Id.Should().Be(id);
     }
 }
 
@@ -228,94 +118,71 @@ public class IdeaEntityTests
 /// </summary>
 public class CommentEntityTests
 {
+    private static Comment CreateComment(CommentId? parentCommentId = null)
+        => Comment.Create(
+            IdeaId.Create("507f1f77bcf86cd799439012"),
+            UserId.Create("507f1f77bcf86cd799439011"),
+            "TestUser",
+            "This is a comment",
+            parentCommentId);
+
     [Fact]
-    public void Constructor_InitializesWithDefaults()
+    public void Factory_InitializesWithDefaults()
     {
         // Act
-        var comment = new Comment();
+        var comment = CreateComment();
 
         // Assert
-        comment.Id.Should().NotBeNull();
+        comment.Id.Should().BeNull();
         comment.CreatedAt.Should().BeCloseTo(DateTime.UtcNow, TimeSpan.FromSeconds(1));
-        comment.UpdatedAt.Should().BeCloseTo(DateTime.UtcNow, TimeSpan.FromSeconds(1));
+        comment.UpdatedAt.Should().BeCloseTo(comment.CreatedAt, TimeSpan.FromSeconds(1));
+        comment.ParentCommentId.Should().BeNull();
     }
 
     [Fact]
-    public void SetProperties_UpdatesValues()
+    public void Properties_CanBeUpdated()
     {
         // Arrange
-        var comment = new Comment();
-        var ideaId = IdeaId.Create(ObjectId.GenerateNewId().ToString());
-        var userId = UserId.Create("507f1f77bcf86cd799439011");
+        var comment = CreateComment();
+        var newUserName = "AnotherUser";
+        var newContent = "Updated content";
 
         // Act
-        comment.IdeaId = ideaId;
-        comment.UserId = userId;
-        comment.UserName = "TestUser";
-        comment.Content = "This is a comment";
+        comment.UserName = newUserName;
+        comment.Content = newContent;
+        comment.UpdatedAt = DateTime.UtcNow.AddMinutes(1);
 
         // Assert
-        comment.IdeaId.Should().Be(ideaId);
-        comment.UserId.Should().Be(userId);
-        comment.UserName.Should().Be("TestUser");
-        comment.Content.Should().Be("This is a comment");
+        comment.UserName.Should().Be(newUserName);
+        comment.Content.Should().Be(newContent);
+        comment.UpdatedAt.Should().BeAfter(comment.CreatedAt);
     }
 
     [Fact]
-    public void SetParentCommentId_CreatesReplyChain()
+    public void AssignId_SetsIdentifier()
     {
         // Arrange
-        var comment = new Comment();
-        var parentCommentId = CommentId.Create(ObjectId.GenerateNewId().ToString());
+        var comment = CreateComment();
+        var id = CommentId.Create("507f1f77bcf86cd799439013");
 
         // Act
-        comment.ParentCommentId = parentCommentId;
+        comment.AssignId(id);
 
         // Assert
-        comment.ParentCommentId.Should().Be(parentCommentId);
+        comment.Id.Should().Be(id);
     }
 
     [Fact]
-    public void UpdateContent_ChangesContent()
+    public void ParentCommentId_CanBeAssigned()
     {
         // Arrange
-        var comment = new Comment();
-        comment.Content = "Original content";
-        var originalUpdatedAt = comment.UpdatedAt;
+        var parentId = CommentId.Create("507f1f77bcf86cd799439014");
 
         // Act
-        comment.Content = "Updated content";
-        comment.UpdatedAt = DateTime.UtcNow;
+        var comment = CreateComment(parentId);
 
         // Assert
-        comment.Content.Should().Be("Updated content");
-        comment.UpdatedAt.Should().BeOnOrAfter(originalUpdatedAt);
-    }
-
-    [Fact]
-    public void TwoComments_WithDifferentIds_AreNotEqual()
-    {
-        // Arrange
-        var comment1 = new Comment();
-        var comment2 = new Comment();
-
-        // Act & Assert
-        comment1.Id.Should().NotBe(comment2.Id);
-    }
-
-    [Fact]
-    public void IsReply_WhenParentCommentIdIsSet()
-    {
-        // Arrange
-        var comment = new Comment();
-        var parentId = CommentId.Create(ObjectId.GenerateNewId().ToString());
-        
-        // Act
-        comment.ParentCommentId = parentId;
-        
-        // Assert
-        comment.ParentCommentId.Should().NotBeNull();
-        comment.ParentCommentId.Value.Should().NotBeEmpty();
+        comment.ParentCommentId.Should().Be(parentId);
     }
 }
 
@@ -324,41 +191,43 @@ public class CommentEntityTests
 /// </summary>
 public class VoteEntityTests
 {
+    private static Vote CreateVote(VoteType voteType = VoteType.Upvote)
+        => Vote.Create(
+            IdeaId.Create("507f1f77bcf86cd799439012"),
+            UserId.Create("507f1f77bcf86cd799439011"),
+            voteType);
+
     [Fact]
-    public void Constructor_InitializesWithDefaults()
+    public void Factory_InitializesWithDefaults()
     {
         // Act
-        var vote = new Vote();
+        var vote = CreateVote();
 
         // Assert
-        vote.Id.Should().NotBeNullOrEmpty();
+        vote.Id.Should().BeNullOrEmpty();
+        vote.VoteType.Should().Be(VoteType.Upvote);
         vote.CreatedAt.Should().BeCloseTo(DateTime.UtcNow, TimeSpan.FromSeconds(1));
     }
 
     [Fact]
-    public void CreateUpvote_SetsVoteType()
+    public void AssignId_SetsIdentifier()
     {
         // Arrange
-        var vote = new Vote();
-        var ideaId = IdeaId.Create(ObjectId.GenerateNewId().ToString());
-        var userId = UserId.Create("507f1f77bcf86cd799439011");
+        var vote = CreateVote();
+        var id = ObjectId();
 
         // Act
-        vote.IdeaId = ideaId;
-        vote.UserId = userId;
-        vote.VoteType = VoteType.Upvote;
+        vote.AssignId(id);
 
         // Assert
-        vote.VoteType.Should().Be(VoteType.Upvote);
-        vote.IdeaId.Should().Be(ideaId);
-        vote.UserId.Should().Be(userId);
+        vote.Id.Should().Be(id);
     }
 
     [Fact]
-    public void CreateDownvote_SetsVoteType()
+    public void VoteType_CanBeChanged()
     {
         // Arrange
-        var vote = new Vote();
+        var vote = CreateVote();
 
         // Act
         vote.VoteType = VoteType.Downvote;
@@ -367,30 +236,7 @@ public class VoteEntityTests
         vote.VoteType.Should().Be(VoteType.Downvote);
     }
 
-    [Fact]
-    public void ChangeVoteType_UpdatesVote()
-    {
-        // Arrange
-        var vote = new Vote();
-        vote.VoteType = VoteType.Upvote;
-
-        // Act
-        vote.VoteType = VoteType.Downvote;
-
-        // Assert
-        vote.VoteType.Should().Be(VoteType.Downvote);
-    }
-
-    [Fact]
-    public void TwoVotes_WithDifferentIds_AreNotEqual()
-    {
-        // Arrange
-        var vote1 = new Vote();
-        var vote2 = new Vote();
-
-        // Act & Assert
-        vote1.Id.Should().NotBe(vote2.Id);
-    }
+    private static string ObjectId() => Guid.NewGuid().ToString("N");
 }
 
 /// <summary>
@@ -398,91 +244,57 @@ public class VoteEntityTests
 /// </summary>
 public class NotificationEntityTests
 {
+    private static Notification CreateNotification()
+        => Notification.Create(
+            UserId.Create("507f1f77bcf86cd799439011"),
+            NotificationType.NewComment,
+            "New Comment",
+            "Someone commented on your idea",
+            IdeaId.Create("507f1f77bcf86cd799439012"));
+
     [Fact]
-    public void Constructor_InitializesWithDefaults()
+    public void Factory_InitializesWithDefaults()
     {
         // Act
-        var notification = new Notification();
+        var notification = CreateNotification();
 
         // Assert
-        notification.Id.Should().NotBeNullOrEmpty();
+        notification.Id.Should().BeNullOrEmpty();
         notification.IsRead.Should().BeFalse();
         notification.CreatedAt.Should().BeCloseTo(DateTime.UtcNow, TimeSpan.FromSeconds(1));
     }
 
     [Fact]
-    public void SetProperties_UpdatesValues()
+    public void AssignId_SetsIdentifier()
     {
         // Arrange
-        var notification = new Notification();
-        var userId = UserId.Create("507f1f77bcf86cd799439011");
-        var ideaId = IdeaId.Create(ObjectId.GenerateNewId().ToString());
+        var notification = CreateNotification();
+        var id = Guid.NewGuid().ToString("N");
 
         // Act
-        notification.UserId = userId;
-        notification.Type = NotificationType.NewComment;
-        notification.Title = "New Comment";
-        notification.Message = "Someone commented on your idea";
-        notification.RelatedIdeaId = ideaId;
+        notification.AssignId(id);
 
         // Assert
-        notification.UserId.Should().Be(userId);
-        notification.Type.Should().Be(NotificationType.NewComment);
-        notification.Title.Should().Be("New Comment");
-        notification.Message.Should().Be("Someone commented on your idea");
-        notification.RelatedIdeaId.Should().Be(ideaId);
-    }
-
-    [Theory]
-    [InlineData(NotificationType.NewComment)]
-    [InlineData(NotificationType.NewVote)]
-    [InlineData(NotificationType.IdeaStatusChanged)]
-    [InlineData(NotificationType.UserMentioned)]
-    [InlineData(NotificationType.IdeaFollowUpdate)]
-    public void CreateNotification_WithDifferentTypes(NotificationType type)
-    {
-        // Arrange
-        var notification = new Notification();
-
-        // Act
-        notification.Type = type;
-
-        // Assert
-        notification.Type.Should().Be(type);
+        notification.Id.Should().Be(id);
     }
 
     [Fact]
-    public void MarkAsRead_UpdatesIsRead()
+    public void Properties_CanBeUpdated()
     {
         // Arrange
-        var notification = new Notification();
-        notification.IsRead.Should().BeFalse();
+        var notification = CreateNotification();
+        var newMessage = "Updated message";
 
         // Act
+        notification.Title = "Updated";
+        notification.Message = newMessage;
         notification.IsRead = true;
+        notification.RelatedIdeaId = null;
 
         // Assert
+        notification.Title.Should().Be("Updated");
+        notification.Message.Should().Be(newMessage);
         notification.IsRead.Should().BeTrue();
-    }
-
-    [Fact]
-    public void NewNotification_StartsUnread()
-    {
-        // Arrange & Act
-        var notification = new Notification();
-
-        // Assert
-        notification.IsRead.Should().BeFalse();
-    }
-
-    [Fact]
-    public void TwoNotifications_WithDifferentIds_AreNotEqual()
-    {
-        // Arrange
-        var notification1 = new Notification();
-        var notification2 = new Notification();
-
-        // Act & Assert
-        notification1.Id.Should().NotBe(notification2.Id);
+        notification.RelatedIdeaId.Should().BeNull();
     }
 }

@@ -1,7 +1,9 @@
+using System;
 using Catalyst.Application.Interfaces;
 using Catalyst.Domain.Entities;
 using Catalyst.Domain.Enums;
 using Catalyst.Domain.ValueObjects;
+using MongoDB.Bson;
 using MongoDB.Driver;
 
 namespace Catalyst.Infrastructure.Repositories;
@@ -19,6 +21,26 @@ public class UserRepository : IUserRepository
 
     public async Task<User> AddAsync(User entity)
     {
+        if (entity.Id == null || string.IsNullOrWhiteSpace(entity.Id.Value))
+        {
+            entity.AssignId(UserId.Create(ObjectId.GenerateNewId().ToString()));
+        }
+
+        if (entity.EipPoints == null)
+        {
+            entity.EipPoints = EipPoints.Create(0);
+        }
+
+        if (entity.CreatedAt == default)
+        {
+            entity.CreatedAt = DateTime.UtcNow;
+        }
+
+        if (entity.UpdatedAt == default)
+        {
+            entity.UpdatedAt = entity.CreatedAt;
+        }
+
         await _collection.InsertOneAsync(entity);
         return entity;
     }

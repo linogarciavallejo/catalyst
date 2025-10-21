@@ -1,5 +1,4 @@
-using MongoDB.Bson;
-using MongoDB.Bson.Serialization.Attributes;
+using System;
 using Catalyst.Domain.Enums;
 using Catalyst.Domain.ValueObjects;
 
@@ -7,41 +6,105 @@ namespace Catalyst.Domain.Entities;
 
 public class User
 {
-    [BsonId]
     public UserId Id { get; set; }
 
-    [BsonElement("email")]
     public Email Email { get; set; }
 
-    [BsonElement("name")]
     public string Name { get; set; }
 
-    [BsonElement("passwordHash")]
     public string PasswordHash { get; set; }
 
-    [BsonElement("displayName")]
     public string DisplayName { get; set; }
 
-    [BsonElement("role")]
     public UserRole Role { get; set; }
 
-    [BsonElement("eipPoints")]
     public EipPoints EipPoints { get; set; }
 
-    [BsonElement("createdAt")]
     public DateTime CreatedAt { get; set; }
 
-    [BsonElement("updatedAt")]
     public DateTime UpdatedAt { get; set; }
 
-    [BsonElement("profilePicture")]
-    public string ProfilePicture { get; set; }
+    public string? ProfilePicture { get; set; }
 
     public User()
     {
-        Id = UserId.Create(ObjectId.GenerateNewId().ToString());
-        EipPoints = EipPoints.Create(0);
-        CreatedAt = DateTime.UtcNow;
-        UpdatedAt = DateTime.UtcNow;
+        // Parameterless constructor required for serialization and materialization
+    }
+
+    private User(
+        Email email,
+        string name,
+        string passwordHash,
+        string displayName,
+        UserRole role,
+        EipPoints eipPoints,
+        DateTime createdAt,
+        DateTime updatedAt,
+        string profilePicture)
+    {
+        Email = email;
+        Name = name;
+        PasswordHash = passwordHash;
+        DisplayName = displayName;
+        Role = role;
+        EipPoints = eipPoints;
+        CreatedAt = createdAt;
+        UpdatedAt = updatedAt;
+        ProfilePicture = profilePicture;
+    }
+
+    public static User Create(
+        Email email,
+        string name,
+        string passwordHash,
+        string displayName,
+        UserRole role,
+        string? profilePicture = null)
+    {
+        var now = DateTime.UtcNow;
+        return new User(
+            email,
+            name,
+            passwordHash,
+            displayName,
+            role,
+            EipPoints.Create(0),
+            now,
+            now,
+            profilePicture);
+    }
+
+    public static User Rehydrate(
+        UserId id,
+        Email email,
+        string name,
+        string passwordHash,
+        string displayName,
+        UserRole role,
+        EipPoints eipPoints,
+        DateTime createdAt,
+        DateTime updatedAt,
+        string profilePicture)
+    {
+        var user = new User(
+            email,
+            name,
+            passwordHash,
+            displayName,
+            role,
+            eipPoints,
+            createdAt,
+            updatedAt,
+            profilePicture)
+        {
+            Id = id
+        };
+
+        return user;
+    }
+
+    public void AssignId(UserId id)
+    {
+        Id = id;
     }
 }
