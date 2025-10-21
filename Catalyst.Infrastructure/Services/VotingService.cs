@@ -1,3 +1,4 @@
+using System;
 using Catalyst.Application.Interfaces;
 using Catalyst.Domain.Entities;
 using Catalyst.Domain.ValueObjects;
@@ -27,12 +28,10 @@ public class VotingService : IVotingService
         }
 
         // Create new vote
-        var vote = new Vote
-        {
-            IdeaId = IdeaId.Create(ideaId),
-            UserId = UserId.Create(userId),
-            VoteType = isUpvote ? VoteType.Upvote : VoteType.Downvote
-        };
+        var vote = Vote.Create(
+            IdeaId.Create(ideaId),
+            UserId.Create(userId),
+            isUpvote ? VoteType.Upvote : VoteType.Downvote);
 
         var createdVote = await _voteRepository.AddAsync(vote);
 

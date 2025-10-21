@@ -1,7 +1,8 @@
+using Catalyst.Application.Interfaces;
+using Catalyst.Infrastructure.MongoDB;
+using Catalyst.Infrastructure.MongoDB.Serializers;
 using MongoDB.Bson.Serialization;
 using MongoDB.Driver;
-using Catalyst.Application.Interfaces;
-using Catalyst.Infrastructure.MongoDB.Serializers;
 
 namespace Catalyst.Infrastructure;
 
@@ -35,6 +36,7 @@ public class MongoDbContext
     static MongoDbContext()
     {
         BsonSerializerRegistration.RegisterValueObjectSerializers();
+        DomainClassMapRegistrations.Register();
     }
 
     public MongoDbContext(IMongoDbSettings settings)

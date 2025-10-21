@@ -1,6 +1,8 @@
+using System;
 using Catalyst.Application.Interfaces;
 using Catalyst.Domain.Entities;
 using Catalyst.Domain.ValueObjects;
+using MongoDB.Bson;
 using MongoDB.Driver;
 
 namespace Catalyst.Infrastructure.Repositories;
@@ -18,6 +20,16 @@ public class NotificationRepository : INotificationRepository
 
     public async Task<Notification> AddAsync(Notification entity)
     {
+        if (string.IsNullOrWhiteSpace(entity.Id))
+        {
+            entity.AssignId(ObjectId.GenerateNewId().ToString());
+        }
+
+        if (entity.CreatedAt == default)
+        {
+            entity.CreatedAt = DateTime.UtcNow;
+        }
+
         await _collection.InsertOneAsync(entity);
         return entity;
     }

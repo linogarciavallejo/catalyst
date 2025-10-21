@@ -1,5 +1,7 @@
+using System;
 using Catalyst.Domain.Entities;
 using Catalyst.Domain.Enums;
+using Catalyst.Domain.ValueObjects;
 using FluentAssertions;
 
 namespace Catalyst.Infrastructure.Tests.Data;
@@ -98,11 +100,27 @@ public class MongoDbSettingsTests
 /// </summary>
 public class DomainEntityConstraintTests
 {
+    private static Idea CreateIdea()
+        => Idea.Create(
+            IdeaTitle.Create("Test"),
+            IdeaDescription.Create("Description"),
+            Category.Technology,
+            Tags.Create(new[] { "tag" }),
+            UserId.Create("507f1f77bcf86cd799439011"),
+            "Tester");
+
+    private static Vote CreateVote()
+        => Vote.Create(
+            IdeaId.Create("507f1f77bcf86cd799439012"),
+            UserId.Create("507f1f77bcf86cd799439011"),
+            VoteType.Upvote);
+
     [Fact]
     public void Idea_WithMaxCommentCount_Handled()
     {
         // Arrange & Act
-        var idea = new Idea { CommentCount = int.MaxValue };
+        var idea = CreateIdea();
+        idea.CommentCount = int.MaxValue;
 
         // Assert
         idea.CommentCount.Should().Be(int.MaxValue);
@@ -112,7 +130,8 @@ public class DomainEntityConstraintTests
     public void Idea_WithZeroComments_Valid()
     {
         // Arrange & Act
-        var idea = new Idea { CommentCount = 0 };
+        var idea = CreateIdea();
+        idea.CommentCount = 0;
 
         // Assert
         idea.CommentCount.Should().Be(0);
@@ -122,7 +141,9 @@ public class DomainEntityConstraintTests
     public void Idea_WithLargeVoteCount_Handled()
     {
         // Arrange & Act
-        var idea = new Idea { Upvotes = 1000000, Downvotes = 500000 };
+        var idea = CreateIdea();
+        idea.Upvotes = 1000000;
+        idea.Downvotes = 500000;
 
         // Assert
         idea.Upvotes.Should().Be(1000000);
@@ -133,7 +154,8 @@ public class DomainEntityConstraintTests
     public void Idea_StatusCanTransition_Submitted_To_UnderReview()
     {
         // Arrange
-        var idea = new Idea { Status = IdeaStatus.Submitted };
+        var idea = CreateIdea();
+        idea.Status = IdeaStatus.Submitted;
 
         // Act
         idea.Status = IdeaStatus.UnderReview;
@@ -146,7 +168,8 @@ public class DomainEntityConstraintTests
     public void Idea_StatusCanTransition_UnderReview_To_Approved()
     {
         // Arrange
-        var idea = new Idea { Status = IdeaStatus.UnderReview };
+        var idea = CreateIdea();
+        idea.Status = IdeaStatus.UnderReview;
 
         // Act
         idea.Status = IdeaStatus.Approved;
@@ -159,7 +182,8 @@ public class DomainEntityConstraintTests
     public void Idea_StatusCanTransition_Approved_To_InProgress()
     {
         // Arrange
-        var idea = new Idea { Status = IdeaStatus.Approved };
+        var idea = CreateIdea();
+        idea.Status = IdeaStatus.Approved;
 
         // Act
         idea.Status = IdeaStatus.InProgress;
@@ -172,7 +196,8 @@ public class DomainEntityConstraintTests
     public void Idea_StatusCanTransition_InProgress_To_Completed()
     {
         // Arrange
-        var idea = new Idea { Status = IdeaStatus.InProgress };
+        var idea = CreateIdea();
+        idea.Status = IdeaStatus.InProgress;
 
         // Act
         idea.Status = IdeaStatus.Completed;
@@ -185,7 +210,8 @@ public class DomainEntityConstraintTests
     public void Idea_StatusCanTransition_To_OnHold()
     {
         // Arrange
-        var idea = new Idea { Status = IdeaStatus.InProgress };
+        var idea = CreateIdea();
+        idea.Status = IdeaStatus.InProgress;
 
         // Act
         idea.Status = IdeaStatus.OnHold;
@@ -198,7 +224,8 @@ public class DomainEntityConstraintTests
     public void Idea_StatusCanTransition_To_Rejected()
     {
         // Arrange
-        var idea = new Idea { Status = IdeaStatus.UnderReview };
+        var idea = CreateIdea();
+        idea.Status = IdeaStatus.UnderReview;
 
         // Act
         idea.Status = IdeaStatus.Rejected;
@@ -211,27 +238,31 @@ public class DomainEntityConstraintTests
     public void Vote_CreatedAtSetByDefault()
     {
         // Act
-        var vote = new Vote();
+        var vote = CreateVote();
 
         // Assert
         vote.CreatedAt.Should().BeCloseTo(DateTime.UtcNow, TimeSpan.FromSeconds(1));
     }
 
     [Fact]
-    public void Vote_IdGeneratedByDefault()
+    public void Vote_AssignId_SetsIdentifier()
     {
         // Act
-        var vote = new Vote();
+        var vote = CreateVote();
+        vote.AssignId("vote-123");
 
         // Assert
-        vote.Id.Should().NotBeNullOrEmpty();
+        vote.Id.Should().Be("vote-123");
     }
 
     [Fact]
     public void Vote_UpvoteType_Recognized()
     {
         // Arrange & Act
-        var vote = new Vote { VoteType = VoteType.Upvote };
+        var vote = Vote.Create(
+            IdeaId.Create("idea-1"),
+            UserId.Create("user-1"),
+            VoteType.Upvote);
 
         // Assert
         vote.VoteType.Should().Be(VoteType.Upvote);
@@ -241,7 +272,10 @@ public class DomainEntityConstraintTests
     public void Vote_DownvoteType_Recognized()
     {
         // Arrange & Act
-        var vote = new Vote { VoteType = VoteType.Downvote };
+        var vote = Vote.Create(
+            IdeaId.Create("idea-2"),
+            UserId.Create("user-2"),
+            VoteType.Downvote);
 
         // Assert
         vote.VoteType.Should().Be(VoteType.Downvote);
@@ -251,7 +285,12 @@ public class DomainEntityConstraintTests
     public void Comment_CreatedAtSet()
     {
         // Act
-        var comment = new Comment { CreatedAt = DateTime.UtcNow };
+        var comment = Comment.Create(
+            IdeaId.Create("idea-3"),
+            UserId.Create("user-3"),
+            "Commenter",
+            "Content");
+        comment.CreatedAt = DateTime.UtcNow;
 
         // Assert
         comment.CreatedAt.Should().BeCloseTo(DateTime.UtcNow, TimeSpan.FromSeconds(1));
@@ -261,9 +300,9 @@ public class DomainEntityConstraintTests
     public void User_RolesRecognized()
     {
         // Arrange & Act
-        var userAdmin = new User { Role = UserRole.Admin };
-        var userCreator = new User { Role = UserRole.Creator };
-        var userContributor = new User { Role = UserRole.Contributor };
+        var userAdmin = User.Create(Email.Create("admin@example.com"), "Admin", "pass", "Admin", UserRole.Admin);
+        var userCreator = User.Create(Email.Create("creator@example.com"), "Creator", "pass", "Creator", UserRole.Creator);
+        var userContributor = User.Create(Email.Create("contributor@example.com"), "Contributor", "pass", "Contributor", UserRole.Contributor);
 
         // Assert
         userAdmin.Role.Should().Be(UserRole.Admin);

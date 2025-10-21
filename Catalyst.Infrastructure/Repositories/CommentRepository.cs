@@ -1,6 +1,8 @@
+using System;
 using Catalyst.Application.Interfaces;
 using Catalyst.Domain.Entities;
 using Catalyst.Domain.ValueObjects;
+using MongoDB.Bson;
 using MongoDB.Driver;
 
 namespace Catalyst.Infrastructure.Repositories;
@@ -18,6 +20,21 @@ public class CommentRepository : ICommentRepository
 
     public async Task<Comment> AddAsync(Comment entity)
     {
+        if (entity.Id == null || string.IsNullOrWhiteSpace(entity.Id.Value))
+        {
+            entity.AssignId(CommentId.Create(ObjectId.GenerateNewId().ToString()));
+        }
+
+        if (entity.CreatedAt == default)
+        {
+            entity.CreatedAt = DateTime.UtcNow;
+        }
+
+        if (entity.UpdatedAt == default)
+        {
+            entity.UpdatedAt = entity.CreatedAt;
+        }
+
         await _collection.InsertOneAsync(entity);
         return entity;
     }

@@ -1,5 +1,5 @@
-using MongoDB.Bson;
-using MongoDB.Bson.Serialization.Attributes;
+using System.Collections.Generic;
+using System.Linq;
 using Catalyst.Domain.Enums;
 using Catalyst.Domain.ValueObjects;
 
@@ -7,77 +7,178 @@ namespace Catalyst.Domain.Entities;
 
 public class Idea
 {
-    [BsonId]
     public IdeaId Id { get; set; }
 
-    [BsonElement("title")]
     public IdeaTitle Title { get; set; }
 
-    [BsonElement("description")]
     public IdeaDescription Description { get; set; }
 
-    [BsonElement("category")]
     public Category Category { get; set; }
 
-    [BsonElement("tags")]
     public Tags Tags { get; set; }
 
-    [BsonElement("createdBy")]
     public UserId CreatedBy { get; set; }
 
-    [BsonElement("createdByName")]
     public string CreatedByName { get; set; }
 
-    [BsonElement("createdAt")]
     public DateTime CreatedAt { get; set; }
 
-    [BsonElement("updatedAt")]
     public DateTime UpdatedAt { get; set; }
 
-    [BsonElement("status")]
     public IdeaStatus Status { get; set; }
 
-    [BsonElement("upvotes")]
     public int Upvotes { get; set; }
 
-    [BsonElement("downvotes")]
     public int Downvotes { get; set; }
 
-    [BsonElement("commentCount")]
     public int CommentCount { get; set; }
 
-    [BsonElement("followers")]
     public List<UserId> Followers { get; set; } = new();
 
-    [BsonElement("attachments")]
     public List<Attachment> Attachments { get; set; } = new();
 
-    [BsonElement("championId")]
     public UserId ChampionId { get; set; }
 
     public Idea()
     {
-        Id = IdeaId.Create(ObjectId.GenerateNewId().ToString());
-        Status = IdeaStatus.Submitted;
-        CreatedAt = DateTime.UtcNow;
-        UpdatedAt = DateTime.UtcNow;
-        Upvotes = 0;
-        Downvotes = 0;
-        CommentCount = 0;
+        // Parameterless constructor required for serialization and materialization
+    }
+
+    private Idea(
+        IdeaTitle title,
+        IdeaDescription description,
+        Category category,
+        Tags tags,
+        UserId createdBy,
+        string createdByName,
+        DateTime createdAt,
+        DateTime updatedAt,
+        IdeaStatus status,
+        int upvotes,
+        int downvotes,
+        int commentCount,
+        IEnumerable<UserId>? followers,
+        IEnumerable<Attachment>? attachments,
+        UserId championId)
+    {
+        Title = title;
+        Description = description;
+        Category = category;
+        Tags = tags;
+        CreatedBy = createdBy;
+        CreatedByName = createdByName;
+        CreatedAt = createdAt;
+        UpdatedAt = updatedAt;
+        Status = status;
+        Upvotes = upvotes;
+        Downvotes = downvotes;
+        CommentCount = commentCount;
+        Followers = followers?.ToList() ?? new List<UserId>();
+        Attachments = attachments?.ToList() ?? new List<Attachment>();
+        ChampionId = championId;
+    }
+
+    public static Idea Create(
+        IdeaTitle title,
+        IdeaDescription description,
+        Category category,
+        Tags tags,
+        UserId createdBy,
+        string createdByName)
+    {
+        var now = DateTime.UtcNow;
+
+        return new Idea(
+            title,
+            description,
+            category,
+            tags,
+            createdBy,
+            createdByName,
+            now,
+            now,
+            IdeaStatus.Submitted,
+            0,
+            0,
+            0,
+            Enumerable.Empty<UserId>(),
+            Enumerable.Empty<Attachment>(),
+            null);
+    }
+
+    public static Idea Rehydrate(
+        IdeaId id,
+        IdeaTitle title,
+        IdeaDescription description,
+        Category category,
+        Tags tags,
+        UserId createdBy,
+        string createdByName,
+        DateTime createdAt,
+        DateTime updatedAt,
+        IdeaStatus status,
+        int upvotes,
+        int downvotes,
+        int commentCount,
+        IEnumerable<UserId>? followers,
+        IEnumerable<Attachment>? attachments,
+        UserId championId)
+    {
+        var idea = new Idea(
+            title,
+            description,
+            category,
+            tags,
+            createdBy,
+            createdByName,
+            createdAt,
+            updatedAt,
+            status,
+            upvotes,
+            downvotes,
+            commentCount,
+            followers,
+            attachments,
+            championId)
+        {
+            Id = id
+        };
+
+        return idea;
+    }
+
+    public void AssignId(IdeaId id)
+    {
+        Id = id;
     }
 }
 
 public class Attachment
 {
-    [BsonElement("fileName")]
     public string FileName { get; set; }
 
-    [BsonElement("fileUrl")]
     public string FileUrl { get; set; }
 
-    [BsonElement("fileSize")]
     public long FileSize { get; set; }
 
-    [BsonElement("uploadedAt")]
     public DateTime UploadedAt { get; set; }
+
+    public Attachment()
+    {
+        // Parameterless constructor required for serialization and materialization
+    }
+
+    private Attachment(string fileName, string fileUrl, long fileSize, DateTime uploadedAt)
+    {
+        FileName = fileName;
+        FileUrl = fileUrl;
+        FileSize = fileSize;
+        UploadedAt = uploadedAt;
+    }
+
+    public static Attachment Create(string fileName, string fileUrl, long fileSize, DateTime uploadedAt)
+        => new(fileName, fileUrl, fileSize, uploadedAt);
+
+    public static Attachment Rehydrate(string fileName, string fileUrl, long fileSize, DateTime uploadedAt)
+        => new(fileName, fileUrl, fileSize, uploadedAt);
 }

@@ -89,15 +89,13 @@ public class RepositoryEntityMappingTests
     public void Idea_CanBeCreatedWithAllProperties()
     {
         // Verify Idea entity can be instantiated and properties set
-        var idea = new Idea
-        {
-            Title = Domain.ValueObjects.IdeaTitle.Create("Test Idea"),
-            Description = Domain.ValueObjects.IdeaDescription.Create("Description"),
-            Category = Domain.ValueObjects.Category.Create("Technology"),
-            CreatedBy = Domain.ValueObjects.UserId.Create("user-123"),
-            CreatedByName = "Test User",
-            Status = IdeaStatus.Submitted
-        };
+        var idea = Idea.Create(
+            Domain.ValueObjects.IdeaTitle.Create("Test Idea"),
+            Domain.ValueObjects.IdeaDescription.Create("Description"),
+            Domain.ValueObjects.Category.Create("Technology"),
+            Domain.ValueObjects.Tags.Create(new[] { "tag" }),
+            Domain.ValueObjects.UserId.Create("user-123"),
+            "Test User");
 
         idea.Should().NotBeNull();
         idea.Title.Value.Should().Be("Test Idea");
@@ -108,12 +106,10 @@ public class RepositoryEntityMappingTests
     public void Vote_CanBeCreatedWithProperties()
     {
         // Verify Vote entity can be instantiated with VoteType
-        var vote = new Vote
-        {
-            IdeaId = Domain.ValueObjects.IdeaId.Create("507f1f77bcf86cd799439011"),
-            UserId = Domain.ValueObjects.UserId.Create("user-123"),
-            VoteType = Domain.Entities.VoteType.Upvote
-        };
+        var vote = Vote.Create(
+            Domain.ValueObjects.IdeaId.Create("507f1f77bcf86cd799439011"),
+            Domain.ValueObjects.UserId.Create("user-123"),
+            Domain.Entities.VoteType.Upvote);
 
         vote.Should().NotBeNull();
         vote.VoteType.Should().Be(Domain.Entities.VoteType.Upvote);
@@ -123,13 +119,12 @@ public class RepositoryEntityMappingTests
     public void User_CanBeCreatedWithEmailAndRole()
     {
         // Verify User entity can be instantiated
-        var user = new User
-        {
-            Email = Domain.ValueObjects.Email.Create("test@example.com"),
-            Name = "Test User",
-            DisplayName = "Test",
-            Role = UserRole.Contributor
-        };
+        var user = User.Create(
+            Domain.ValueObjects.Email.Create("test@example.com"),
+            "Test User",
+            "password",
+            "Test",
+            UserRole.Contributor);
 
         user.Should().NotBeNull();
         user.Email.Value.Should().Be("test@example.com");
@@ -140,13 +135,11 @@ public class RepositoryEntityMappingTests
     public void Comment_CanBeCreatedWithContent()
     {
         // Verify Comment entity can be instantiated
-        var comment = new Comment
-        {
-            IdeaId = Domain.ValueObjects.IdeaId.Create("idea-123"),
-            UserId = Domain.ValueObjects.UserId.Create("user-123"),
-            UserName = "User",
-            Content = "Comment content"
-        };
+        var comment = Comment.Create(
+            Domain.ValueObjects.IdeaId.Create("idea-123"),
+            Domain.ValueObjects.UserId.Create("user-123"),
+            "User",
+            "Comment content");
 
         comment.Should().NotBeNull();
         comment.Content.Should().Be("Comment content");
@@ -156,12 +149,11 @@ public class RepositoryEntityMappingTests
     public void Notification_CanBeCreatedWithMessage()
     {
         // Verify Notification entity can be instantiated
-        var notification = new Notification
-        {
-            UserId = Domain.ValueObjects.UserId.Create("user-123"),
-            Message = "Test notification",
-            IsRead = false
-        };
+        var notification = Notification.Create(
+            Domain.ValueObjects.UserId.Create("user-123"),
+            NotificationType.NewComment,
+            "Title",
+            "Test notification");
 
         notification.Should().NotBeNull();
         notification.Message.Should().Be("Test notification");

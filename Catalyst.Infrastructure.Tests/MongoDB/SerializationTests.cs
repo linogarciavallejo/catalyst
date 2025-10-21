@@ -1,3 +1,4 @@
+using System.Collections.Generic;
 using Catalyst.Domain.Entities;
 using Catalyst.Domain.Enums;
 using Catalyst.Domain.ValueObjects;
@@ -121,15 +122,13 @@ public class SerializationTests
         var email = Email.Create("test@example.com");
 
         // Act
-        var user = new User
-        {
-            Id = userId,
-            Email = email,
-            Name = "Test User",
-            DisplayName = "Test",
-            PasswordHash = "hash",
-            Role = UserRole.Contributor
-        };
+        var user = User.Create(
+            email,
+            "Test User",
+            "hash",
+            "Test",
+            UserRole.Contributor);
+        user.AssignId(userId);
 
         // Assert
         user.Should().NotBeNull();
@@ -146,18 +145,16 @@ public class SerializationTests
         var championId = UserId.Create("507f1f77bcf86cd799439099");
 
         // Act
-        var idea = new Idea
-        {
-            Id = ideaId,
-            Title = IdeaTitle.Create("Test Idea"),
-            Description = IdeaDescription.Create("A test idea"),
-            Category = Category.Create("Innovation"),
-            Tags = Tags.Create(["test"]),
-            CreatedBy = creatorId,
-            CreatedByName = "John Doe",
-            ChampionId = championId,
-            Status = IdeaStatus.Approved
-        };
+        var idea = Idea.Create(
+            IdeaTitle.Create("Test Idea"),
+            IdeaDescription.Create("A test idea"),
+            Category.Create("Innovation"),
+            Tags.Create(new[] { "test" }),
+            creatorId,
+            "John Doe");
+        idea.AssignId(ideaId);
+        idea.ChampionId = championId;
+        idea.Status = IdeaStatus.Approved;
 
         // Assert
         idea.Should().NotBeNull();
@@ -175,15 +172,8 @@ public class SerializationTests
         var userId = UserId.Create("507f1f77bcf86cd799439011");
 
         // Act
-        var comment = new Comment
-        {
-            Id = commentId,
-            IdeaId = ideaId,
-            UserId = userId,
-            UserName = "John Doe",
-            Content = "Great idea!",
-            ParentCommentId = parentCommentId
-        };
+        var comment = Comment.Create(ideaId, userId, "John Doe", "Great idea!", parentCommentId);
+        comment.AssignId(commentId);
 
         // Assert
         comment.Should().NotBeNull();
@@ -205,17 +195,15 @@ public class SerializationTests
 
         // Act
         var ideaId = IdeaId.Create("507f1f77bcf86cd799439012");
-        var idea = new Idea
-        {
-            Id = ideaId,
-            Title = IdeaTitle.Create("Idea"),
-            Description = IdeaDescription.Create("Description"),
-            Category = Category.Create("Innovation"),
-            Tags = Tags.Create(["tag"]),
-            CreatedBy = UserId.Create("507f1f77bcf86cd799439011"),
-            CreatedByName = "Creator",
-            Followers = followers
-        };
+        var idea = Idea.Create(
+            IdeaTitle.Create("Idea"),
+            IdeaDescription.Create("Description"),
+            Category.Create("Innovation"),
+            Tags.Create(new[] { "tag" }),
+            UserId.Create("507f1f77bcf86cd799439011"),
+            "Creator");
+        idea.AssignId(ideaId);
+        idea.Followers = followers;
 
         // Assert
         idea.Followers.Should().HaveCount(2);

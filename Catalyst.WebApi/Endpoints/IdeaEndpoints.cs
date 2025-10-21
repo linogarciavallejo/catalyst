@@ -1,3 +1,4 @@
+using System.Collections.Generic;
 using Catalyst.Application.Interfaces;
 using Catalyst.Domain.Entities;
 using Catalyst.Domain.Enums;
@@ -62,16 +63,13 @@ public static class IdeaEndpoints
             if (string.IsNullOrEmpty(userId))
                 return Results.Unauthorized();
 
-            var idea = new Idea
-            {
-                Title = IdeaTitle.Create(request.Title),
-                Description = IdeaDescription.Create(request.Description),
-                Category = Category.Create(request.Category),
-                Tags = Tags.Create(request.Tags),
-                CreatedBy = UserId.Create(userId),
-                CreatedByName = claimsService.GetDisplayName() ?? "Anonymous",
-                Status = IdeaStatus.Submitted
-            };
+            var idea = Idea.Create(
+                IdeaTitle.Create(request.Title),
+                IdeaDescription.Create(request.Description),
+                Category.Create(request.Category),
+                Tags.Create(request.Tags ?? new List<string>()),
+                UserId.Create(userId),
+                claimsService.GetDisplayName() ?? "Anonymous");
 
             var createdIdea = await ideaService.CreateIdeaAsync(idea);
             var dto = MapToDto(createdIdea);

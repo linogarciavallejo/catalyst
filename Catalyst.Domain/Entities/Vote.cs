@@ -1,30 +1,51 @@
-using MongoDB.Bson;
-using MongoDB.Bson.Serialization.Attributes;
+using System;
 using Catalyst.Domain.ValueObjects;
 
 namespace Catalyst.Domain.Entities;
 
 public class Vote
 {
-    [BsonId]
     public string Id { get; set; }
 
-    [BsonElement("ideaId")]
     public IdeaId IdeaId { get; set; }
 
-    [BsonElement("userId")]
     public UserId UserId { get; set; }
 
-    [BsonElement("voteType")]
     public VoteType VoteType { get; set; }
 
-    [BsonElement("createdAt")]
     public DateTime CreatedAt { get; set; }
 
     public Vote()
     {
-        Id = ObjectId.GenerateNewId().ToString();
-        CreatedAt = DateTime.UtcNow;
+        // Parameterless constructor required for serialization and materialization
+    }
+
+    private Vote(IdeaId ideaId, UserId userId, VoteType voteType, DateTime createdAt)
+    {
+        IdeaId = ideaId;
+        UserId = userId;
+        VoteType = voteType;
+        CreatedAt = createdAt;
+    }
+
+    public static Vote Create(IdeaId ideaId, UserId userId, VoteType voteType)
+    {
+        return new Vote(ideaId, userId, voteType, DateTime.UtcNow);
+    }
+
+    public static Vote Rehydrate(string id, IdeaId ideaId, UserId userId, VoteType voteType, DateTime createdAt)
+    {
+        var vote = new Vote(ideaId, userId, voteType, createdAt)
+        {
+            Id = id
+        };
+
+        return vote;
+    }
+
+    public void AssignId(string id)
+    {
+        Id = id;
     }
 }
 

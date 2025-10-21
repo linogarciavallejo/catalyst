@@ -1,7 +1,10 @@
+using System;
+using System.Collections.Generic;
 using Catalyst.Application.Interfaces;
 using Catalyst.Domain.Entities;
 using Catalyst.Domain.Enums;
 using Catalyst.Domain.ValueObjects;
+using MongoDB.Bson;
 using MongoDB.Driver;
 
 namespace Catalyst.Infrastructure.Repositories;
@@ -19,6 +22,24 @@ public class IdeaRepository : IIdeaRepository
 
     public async Task<Idea> AddAsync(Idea entity)
     {
+        if (entity.Id == null || string.IsNullOrWhiteSpace(entity.Id.Value))
+        {
+            entity.AssignId(IdeaId.Create(ObjectId.GenerateNewId().ToString()));
+        }
+
+        if (entity.CreatedAt == default)
+        {
+            entity.CreatedAt = DateTime.UtcNow;
+        }
+
+        if (entity.UpdatedAt == default)
+        {
+            entity.UpdatedAt = entity.CreatedAt;
+        }
+
+        entity.Followers ??= new List<UserId>();
+        entity.Attachments ??= new List<Attachment>();
+
         await _collection.InsertOneAsync(entity);
         return entity;
     }
