@@ -86,9 +86,29 @@ describe('IdeasService', () => {
   });
 
   it('translates API errors through the error handler', async () => {
-    apiMocks.client.get.mockRejectedValueOnce('boom');
+    apiMocks.client.get
+      .mockRejectedValueOnce('boom')
+      .mockRejectedValueOnce('detail-fail')
+      .mockRejectedValueOnce('search-fail')
+      .mockRejectedValueOnce('category-fail')
+      .mockRejectedValueOnce('top-fail');
+
     await expect(IdeasService.getAllIdeas()).rejects.toBe(handledError);
     expect(apiMocks.handle).toHaveBeenCalledWith('boom');
+
+    await expect(IdeasService.getIdeaById('idea-1')).rejects.toBe(handledError);
+    expect(apiMocks.handle).toHaveBeenCalledWith('detail-fail');
+
+    await expect(IdeasService.searchIdeas('query')).rejects.toBe(handledError);
+    expect(apiMocks.handle).toHaveBeenCalledWith('search-fail');
+
+    await expect(IdeasService.getIdeasByCategory('category')).rejects.toBe(
+      handledError
+    );
+    expect(apiMocks.handle).toHaveBeenCalledWith('category-fail');
+
+    await expect(IdeasService.getTopIdeas()).rejects.toBe(handledError);
+    expect(apiMocks.handle).toHaveBeenCalledWith('top-fail');
 
     apiMocks.client.post.mockRejectedValueOnce('create-fail');
     await expect(IdeasService.createIdea({} as any)).rejects.toBe(handledError);
