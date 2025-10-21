@@ -1,6 +1,6 @@
 using System.Security.Claims;
 
-namespace Catalyst.Infrastructure.Authentication;
+namespace Catalyst.Application.Security;
 
 /// <summary>
 /// Service for generating and validating JWT tokens

@@ -1,8 +1,8 @@
 using System.Security.Cryptography;
 using System.Text;
 using Catalyst.Application.Interfaces;
+using Catalyst.Application.Security;
 using Catalyst.Domain.ValueObjects;
-using Catalyst.Infrastructure.Authentication;
 using MongoDB.Bson;
 
 namespace Catalyst.Infrastructure.Services;

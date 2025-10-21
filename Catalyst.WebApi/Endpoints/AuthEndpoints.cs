@@ -1,5 +1,5 @@
 using Microsoft.AspNetCore.Authorization;
-using Catalyst.Infrastructure.Authentication;
+using Catalyst.Application.Security;
 using Catalyst.WebApi.Dtos;
 
 namespace Catalyst.WebApi.Endpoints;

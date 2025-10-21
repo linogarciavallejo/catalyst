@@ -1,5 +1,5 @@
 using Microsoft.AspNetCore.SignalR;
-using Catalyst.Infrastructure.Authentication;
+using Catalyst.Application.Security;
 
 namespace Catalyst.WebApi.Hubs;
 

@@ -1,6 +1,6 @@
 using Catalyst.Application.Interfaces;
+using Catalyst.Application.Security;
 using Catalyst.Domain.Entities;
-using Catalyst.Infrastructure.Authentication;
 using Catalyst.WebApi.Dtos;
 
 namespace Catalyst.WebApi.Endpoints;

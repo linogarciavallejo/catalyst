@@ -1,12 +1,12 @@
-namespace Catalyst.Infrastructure.Authentication;
+namespace Catalyst.Application.Security;
 
 /// <summary>
 /// User login credentials request
 /// </summary>
 public class LoginCredentials
 {
-    public string Email { get; set; }
-    public string Password { get; set; }
+    public string Email { get; set; } = string.Empty;
+    public string Password { get; set; } = string.Empty;
 }
 
 /// <summary>
@@ -35,7 +35,7 @@ public interface IAuthenticationService
     /// - Exchange Server (SMTP)
     /// - LDAP (Active Directory)
     /// - Workday API (future)
-    /// 
+    ///
     /// Returns AuthenticationResult with user info and JWT token
     /// </summary>
     Task<AuthenticationResult> AuthenticateAsync(LoginCredentials credentials);

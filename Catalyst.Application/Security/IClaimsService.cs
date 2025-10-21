@@ -1,4 +1,4 @@
-namespace Catalyst.Infrastructure.Authentication;
+namespace Catalyst.Application.Security;
 
 /// <summary>
 /// Service for extracting claims and user information from JWT tokens
