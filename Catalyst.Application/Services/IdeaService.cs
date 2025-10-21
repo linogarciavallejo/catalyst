@@ -24,6 +24,7 @@ public class IdeaService : IIdeaService
 
         var createdIdea = await _ideaRepository.AddAsync(idea);
 
+        // Award 50 points for idea submission (business rule)
         await _gamificationService.AwardPointsAsync(idea.CreatedBy.Value, 50);
 
         return createdIdea;
@@ -58,6 +59,7 @@ public class IdeaService : IIdeaService
         if (idea == null)
             return false;
 
+        // Reclaim the 50 submission points when the idea is deleted
         await _gamificationService.DeductPointsAsync(idea.CreatedBy.Value, 50);
 
         return await _ideaRepository.DeleteAsync(id);
