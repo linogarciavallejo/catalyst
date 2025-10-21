@@ -23,7 +23,6 @@ public class NotificationRepository : INotificationRepository
         if (string.IsNullOrWhiteSpace(entity.Id))
         {
             entity.AssignId(ObjectId.GenerateNewId().ToString());
-            entity.IsRead = false;
         }
 
         if (entity.CreatedAt == default)
