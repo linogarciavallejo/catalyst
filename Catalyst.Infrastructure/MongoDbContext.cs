@@ -1,4 +1,3 @@
-using Catalyst.Application.Interfaces;
 using Catalyst.Infrastructure.MongoDB;
 using Catalyst.Infrastructure.MongoDB.Serializers;
 using MongoDB.Bson.Serialization;

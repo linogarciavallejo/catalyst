@@ -1,5 +1,3 @@
-using Catalyst.Application.Interfaces;
-
 namespace Catalyst.Infrastructure;
 
 public class MongoDbSettings : IMongoDbSettings
