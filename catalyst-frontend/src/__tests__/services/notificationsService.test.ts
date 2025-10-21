@@ -1,4 +1,5 @@
 import { describe, it, expect, beforeEach, vi } from 'vitest';
+import * as SignalR from '@microsoft/signalr';
 import { NotificationsService } from '@/services/notificationsService';
 
 const createBuilder = () => {
@@ -85,8 +86,19 @@ describe('NotificationsService', () => {
   it('connects to the hub, emits events, and avoids duplicate connections', async () => {
     const received = vi.fn();
     const connected = vi.fn();
+    const read = vi.fn();
+    const reconnecting = vi.fn();
+    const reconnected = vi.fn();
+    const disconnected = vi.fn();
+    const removable = vi.fn();
     NotificationsService.on('notificationReceived', received);
+    NotificationsService.on('notificationReceived', removable);
+    NotificationsService.off('notificationReceived', removable);
     NotificationsService.on('connected', connected);
+    NotificationsService.on('notificationRead', read);
+    NotificationsService.on('connecting', reconnecting);
+    NotificationsService.on('reconnected', reconnected);
+    NotificationsService.on('disconnected', disconnected);
 
     await NotificationsService.connect('user-1', 'token');
 
@@ -97,24 +109,69 @@ describe('NotificationsService', () => {
     expect(builder.withUrl).toHaveBeenCalledWith(expect.stringContaining('/hubs/notifications'), {
       accessTokenFactory: expect.any(Function),
     });
+    const accessTokenFactory = builder.withUrl.mock.calls[0][1].accessTokenFactory;
+    expect(accessTokenFactory()).toBe('token');
     expect(connection.start).toHaveBeenCalled();
     expect(connected).toHaveBeenCalled();
     expect(NotificationsService.isConnected()).toBe(true);
 
     events['NotificationReceived']?.({ id: 'n-1' });
     expect(received).toHaveBeenCalledWith({ id: 'n-1' });
+    expect(removable).not.toHaveBeenCalled();
+
+    events['NotificationRead']?.('n-1');
+    expect(read).toHaveBeenCalledWith('n-1');
+
+    events['reconnecting']?.();
+    expect(reconnecting).toHaveBeenCalled();
+
+    events['reconnected']?.();
+    expect(reconnected).toHaveBeenCalled();
+
+    events['close']?.();
+    expect(disconnected).toHaveBeenCalled();
 
     await NotificationsService.connect('user-1', 'token');
     expect(builders).toHaveLength(1);
   });
 
   it('disconnects gracefully', async () => {
+    const consoleError = vi.spyOn(console, 'error').mockImplementation(() => {});
+
     await NotificationsService.connect('user-1', 'token');
-    const [{ __connection: connection }] = builders;
+    const firstBuilder = builders[0];
 
     await NotificationsService.disconnect();
-    expect(connection.stop).toHaveBeenCalled();
+    expect(firstBuilder.__connection.stop).toHaveBeenCalled();
     expect(NotificationsService.isConnected()).toBe(false);
+
+    await NotificationsService.connect('user-1', 'token');
+    const secondBuilder = builders[builders.length - 1];
+    secondBuilder.__connection.stop.mockRejectedValueOnce(new Error('stop-fail'));
+
+    await NotificationsService.disconnect();
+    expect(consoleError).toHaveBeenCalledWith(
+      'Error disconnecting from notifications:',
+      expect.any(Error),
+    );
+
+    consoleError.mockRestore();
+  });
+
+  it('surfaces connection failures during start', async () => {
+    const consoleError = vi.spyOn(console, 'error').mockImplementation(() => {});
+    const hubMock = SignalR.HubConnectionBuilder as unknown as vi.Mock;
+
+    hubMock.mockImplementationOnce(() => {
+      const builder = createBuilder();
+      builder.__connection.start.mockRejectedValueOnce(new Error('connect-fail'));
+      builders.push(builder);
+      return builder;
+    });
+
+    await expect(NotificationsService.connect('user-2', 'token')).rejects.toThrow('connect-fail');
+    expect(consoleError).toHaveBeenCalledWith('Notifications connection failed:', expect.any(Error));
+    consoleError.mockRestore();
   });
 
   it('proxies API calls and propagates handled errors', async () => {
@@ -137,6 +194,16 @@ describe('NotificationsService', () => {
     await expect(NotificationsService.markAllAsRead()).resolves.toBeUndefined();
     expect(serviceMocks.api.put).toHaveBeenCalledWith('/notifications/read-all');
 
+    const handledCount = { status: 500, message: 'count fail' };
+    serviceMocks.handle.mockReturnValueOnce(handledCount);
+    serviceMocks.api.get.mockRejectedValueOnce('count error');
+    await expect(NotificationsService.getUnreadCount()).rejects.toBe(handledCount);
+
+    const handledMarkAll = { status: 500, message: 'mark all fail' };
+    serviceMocks.handle.mockReturnValueOnce(handledMarkAll);
+    serviceMocks.api.put.mockRejectedValueOnce('mark-all error');
+    await expect(NotificationsService.markAllAsRead()).rejects.toBe(handledMarkAll);
+
     await expect(NotificationsService.deleteNotification('n-1')).resolves.toBeUndefined();
     expect(serviceMocks.api.delete).toHaveBeenCalledWith('/notifications/n-1');
 
@@ -146,5 +213,15 @@ describe('NotificationsService', () => {
 
     await expect(NotificationsService.getNotifications()).rejects.toBe(handled);
     expect(serviceMocks.handle).toHaveBeenCalledWith('boom');
+
+    const handledPut = { status: 500, message: 'put fail' };
+    serviceMocks.handle.mockReturnValueOnce(handledPut);
+    serviceMocks.api.put.mockRejectedValueOnce('mark-fail');
+    await expect(NotificationsService.markAsRead('n-2')).rejects.toBe(handledPut);
+
+    const handledDelete = { status: 500, message: 'delete fail' };
+    serviceMocks.handle.mockReturnValueOnce(handledDelete);
+    serviceMocks.api.delete.mockRejectedValueOnce('delete-fail');
+    await expect(NotificationsService.deleteNotification('n-3')).rejects.toBe(handledDelete);
   });
 });

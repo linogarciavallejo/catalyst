@@ -65,6 +65,25 @@ describe('AuthService', () => {
     expect(apiMocks.handle).toHaveBeenCalledWith(expect.any(Error));
   });
 
+  it('skips token persistence when the backend omits access tokens', async () => {
+    apiMocks.post.mockResolvedValueOnce({ data: { accessToken: '', oid: undefined } });
+
+    const result = await AuthService.login({ email: 'missing@example.com', password: 'secret' });
+
+    expect(apiMocks.setAuthToken).not.toHaveBeenCalled();
+    expect(result.token).toBe('');
+    expect(result.user.id).toBe('');
+  });
+
+  it('fills a fallback identifier when the backend omits oid values', async () => {
+    apiMocks.post.mockResolvedValueOnce({ data: { accessToken: 'token-3', oid: undefined } });
+
+    const result = await AuthService.login({ email: 'anon@example.com', password: 'secret' });
+
+    expect(apiMocks.setAuthToken).toHaveBeenCalledWith('token-3');
+    expect(result.user.id).toBe('');
+  });
+
   it('registers users and uses display name from payload', async () => {
     apiMocks.post.mockResolvedValueOnce({ data: { accessToken: 'token-2', oid: 'user-2' } });
 
@@ -93,6 +112,18 @@ describe('AuthService', () => {
 
     await expect(AuthService.register({ email: 'x', displayName: 'X', password: 'y' })).rejects.toBe(handled);
     expect(apiMocks.handle).toHaveBeenCalledWith('oops');
+  });
+
+  it('propagates handled errors when register payload is missing', async () => {
+    const handled = { status: 500, message: 'missing payload' };
+    apiMocks.handle.mockReturnValueOnce(handled);
+    apiMocks.post.mockResolvedValueOnce({ data: undefined });
+
+    await expect(
+      AuthService.register({ email: 'ghost@example.com', displayName: 'Ghost', password: 'boo' }),
+    ).rejects.toBe(handled);
+
+    expect(apiMocks.handle).toHaveBeenCalledWith(expect.any(TypeError));
   });
 
   it('logs out even when server returns an error', async () => {

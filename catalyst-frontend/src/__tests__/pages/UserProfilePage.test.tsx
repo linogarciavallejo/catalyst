@@ -22,9 +22,11 @@ vi.mock('@/hooks', () => ({
 }));
 
 const mockConsoleError = vi.spyOn(console, 'error').mockImplementation(() => {});
+const mockConsoleLog = vi.spyOn(console, 'log').mockImplementation(() => {});
 
 afterAll(() => {
   mockConsoleError.mockRestore();
+  mockConsoleLog.mockRestore();
 });
 
 const createIdea = (overrides: Partial<Idea>): Idea => ({
@@ -74,6 +76,7 @@ describe('UserProfilePage', () => {
   beforeEach(() => {
     vi.clearAllMocks();
     mockConsoleError.mockClear();
+    mockConsoleLog.mockClear();
     userProfileMock.mockClear();
 
     getIdeas.mockResolvedValue(undefined);
@@ -148,5 +151,14 @@ describe('UserProfilePage', () => {
 
     const status = screen.getByText('Rejected');
     expect(status).toHaveClass('bg-yellow-100', { exact: false });
+  });
+
+  it('exposes follow interactions from the profile widget', () => {
+    renderPage('user-1');
+
+    expect(userProfileMock).toHaveBeenCalled();
+    const props = userProfileMock.mock.calls[0][0];
+    props.onFollowClick();
+    expect(mockConsoleLog).toHaveBeenCalledWith('Follow clicked');
   });
 });

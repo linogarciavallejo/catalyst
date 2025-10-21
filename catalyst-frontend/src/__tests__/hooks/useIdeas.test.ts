@@ -171,6 +171,11 @@ describe('useIdeas', () => {
     expect(result.current.ideas.map((idea) => idea.id)).toContain('idea-remote');
 
     act(() => {
+      ideaCreatedHandler?.(createdIdea);
+    });
+    expect(result.current.ideas.filter((idea) => idea.id === createdIdea.id)).toHaveLength(1);
+
+    act(() => {
       voteUpdatedHandler?.('idea-remote', 5, 1);
     });
     expect(result.current.ideas.find((idea) => idea.id === 'idea-remote')?.upvotes).toBe(5);
@@ -207,6 +212,39 @@ describe('useIdeas', () => {
       result.current.clearError();
     });
     expect(result.current.error).toBeNull();
+  });
+
+  it('rolls back optimistic ideas when creation fails', async () => {
+    createIdeaMock.mockRejectedValueOnce('create fail');
+
+    const { result } = renderHook(() => useIdeas());
+
+    await act(async () => {
+      await expect(
+        result.current.createIdea({
+          title: 'Failed idea',
+          description: 'desc',
+          category: 'Innovation',
+        }),
+      ).rejects.toBe('create fail');
+    });
+
+    expect(result.current.pendingIdeas).toHaveLength(0);
+    expect(result.current.error).toBe('Failed to create idea');
+
+    createIdeaMock.mockRejectedValueOnce(new Error('create boom'));
+
+    await act(async () => {
+      await expect(
+        result.current.createIdea({
+          title: 'Error idea',
+          description: 'desc',
+          category: 'Innovation',
+        }),
+      ).rejects.toThrow('create boom');
+    });
+
+    expect(result.current.error).toBe('create boom');
   });
 
   it('handles service failures and preserves state', async () => {
@@ -255,6 +293,65 @@ describe('useIdeas', () => {
       result.current.clearError();
     });
     expect(result.current.error).toBeNull();
+  });
+
+  it('uses fallback error messaging for non-Error rejections', async () => {
+    getAllIdeasMock.mockRejectedValueOnce('boom');
+    getIdeaByIdMock.mockRejectedValueOnce('missing');
+    updateIdeaMock.mockRejectedValueOnce('update nope');
+    deleteIdeaMock.mockRejectedValueOnce('delete nope');
+    getTopIdeasMock.mockRejectedValueOnce('trend nope');
+    searchIdeasMock.mockRejectedValueOnce('search nope');
+
+    const { result } = renderHook(() => useIdeas());
+
+    await act(async () => {
+      await result.current.getIdeas();
+    });
+    expect(result.current.error).toBe('Failed to load ideas');
+
+    await act(async () => {
+      await expect(result.current.getIdeaById('x')).rejects.toBe('missing');
+    });
+    expect(result.current.error).toBe('Failed to load idea');
+
+    await act(async () => {
+      await expect(result.current.updateIdea('x', { title: 't' })).rejects.toBe('update nope');
+    });
+    expect(result.current.error).toBe('Failed to update idea');
+
+    await act(async () => {
+      await expect(result.current.deleteIdea('x')).rejects.toBe('delete nope');
+    });
+    expect(result.current.error).toBe('Failed to delete idea');
+
+    await act(async () => {
+      await result.current.getTrendingIdeas();
+    });
+    expect(result.current.error).toBe('Failed to load trending ideas');
+
+    await act(async () => {
+      await result.current.searchIdeas('term');
+    });
+    expect(result.current.error).toBe('Failed to search ideas');
+  });
+
+  it('logs disconnect failures during cleanup', async () => {
+    const consoleError = vi.spyOn(console, 'error').mockImplementation(() => {});
+    disconnectMock.mockRejectedValueOnce(new Error('disconnect fail'));
+
+    const { unmount } = renderHook(() => useIdeas());
+
+    unmount();
+
+    await waitFor(() =>
+      expect(consoleError).toHaveBeenCalledWith(
+        'Failed to disconnect from IdeasHub:',
+        expect.any(Error),
+      ),
+    );
+
+    consoleError.mockRestore();
   });
 
   it('logs hub connection failures during setup', async () => {

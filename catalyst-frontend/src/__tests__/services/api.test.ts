@@ -61,7 +61,13 @@ describe('Api utilities', () => {
 
   it('applies request and response interceptors', async () => {
     const handlers = (axios as any).__handlers;
-    ApiClient.getInstance();
+    const instance = ApiClient.getInstance();
+    const secondInstance = ApiClient.getInstance();
+    expect(secondInstance).toBe(instance);
+
+    localStorage.removeItem('authToken');
+    const withoutToken = await handlers.requestHandlers.success?.({ headers: {} });
+    expect(withoutToken?.headers.Authorization).toBeUndefined();
 
     localStorage.setItem('authToken', 'token');
     const config = await handlers.requestHandlers.success?.({ headers: {} });
@@ -96,6 +102,28 @@ describe('Api utilities', () => {
       status: 404,
       message: 'Not found',
       details: 'Missing resource',
+    });
+
+    const axiosFallback = {
+      isAxiosError: true,
+      message: 'Network failed',
+    };
+
+    expect(ApiErrorHandler.handle(axiosFallback)).toEqual({
+      status: 500,
+      message: 'Network failed',
+      details: undefined,
+    });
+
+    const axiosNoMessage = {
+      isAxiosError: true,
+      message: '',
+    };
+
+    expect(ApiErrorHandler.handle(axiosNoMessage)).toEqual({
+      status: 500,
+      message: 'An error occurred',
+      details: undefined,
     });
 
     expect(ApiErrorHandler.handle(new Error('Boom'))).toEqual({

@@ -16,11 +16,13 @@ vi.mock('@/components/features', () => ({
   IdeaCard: ({
     idea,
     onVote,
+    onComment,
     isPending,
     isPendingVote,
   }: {
     idea: Idea;
     onVote?: (ideaId: string, type: 'upvote' | 'downvote') => void;
+    onComment?: (ideaId: string) => void;
     isPending?: boolean;
     isPendingVote?: boolean;
   }) => (
@@ -28,15 +30,19 @@ vi.mock('@/components/features', () => ({
       <div>{idea.title}</div>
       <div>{isPending ? 'pending' : 'confirmed'}</div>
       <div>{isPendingVote ? 'vote-pending' : 'vote-ready'}</div>
-      <button onClick={() => onVote?.(idea.id, 'upvote')}>Vote</button>
+      <button onClick={() => onVote?.(idea.id, 'upvote')}>Upvote</button>
+      <button onClick={() => onVote?.(idea.id, 'downvote')}>Downvote</button>
+      <button onClick={() => onComment?.(idea.id)}>Comment</button>
     </div>
   ),
 }));
 
 const mockConsoleError = vi.spyOn(console, 'error').mockImplementation(() => {});
+const mockConsoleLog = vi.spyOn(console, 'log').mockImplementation(() => {});
 
 afterAll(() => {
   mockConsoleError.mockRestore();
+  mockConsoleLog.mockRestore();
 });
 
 const renderPage = () =>
@@ -91,6 +97,7 @@ describe('IdeasBrowsingPage', () => {
   beforeEach(() => {
     vi.clearAllMocks();
     mockConsoleError.mockClear();
+    mockConsoleLog.mockClear();
 
     ideasIsPending.mockImplementation((id: string) => id.startsWith('pending-'));
     getIdeas.mockResolvedValue(undefined);
@@ -134,15 +141,21 @@ describe('IdeasBrowsingPage', () => {
     const user = userEvent.setup();
     renderPage();
 
-    await user.click(screen.getAllByText('Vote')[0]);
+    await user.click(screen.getAllByText('Upvote')[0]);
 
     await waitFor(() => {
       expect(submitVote).toHaveBeenCalledWith('pending-1', 'Upvote');
     });
 
+    await user.click(screen.getAllByText('Downvote')[0]);
+
+    await waitFor(() => {
+      expect(submitVote).toHaveBeenCalledWith('pending-1', 'Downvote');
+    });
+
     submitVote.mockRejectedValueOnce(new Error('Vote error'));
 
-    await user.click(screen.getAllByText('Vote')[0]);
+    await user.click(screen.getAllByText('Upvote')[0]);
 
     await waitFor(() => {
       expect(mockConsoleError).toHaveBeenCalledWith('Vote failed:', expect.any(Error));
@@ -161,9 +174,11 @@ describe('IdeasBrowsingPage', () => {
       expect(searchIdeas).toHaveBeenCalledWith('backend');
     });
 
+    const callsAfterTyping = searchIdeas.mock.calls.length;
     searchIdeas.mockRejectedValueOnce(new Error('Search failed'));
 
     await user.clear(searchInput);
+    expect(searchIdeas.mock.calls.length).toBe(callsAfterTyping);
     await user.type(searchInput, 'error');
 
     await waitFor(() => {
@@ -171,13 +186,17 @@ describe('IdeasBrowsingPage', () => {
     });
   });
 
-  it('shows loading and empty states appropriately', () => {
-    ideasReturn = {
-      ...ideasReturn,
-      ideas: [],
-      pendingIdeas: [],
+  it('shows loading and empty states appropriately', async () => {
+    const state = {
+      ideas: [] as Idea[],
+      pendingIdeas: [] as Idea[],
+      isPending: ideasIsPending,
+      getIdeas,
+      searchIdeas,
       isLoading: true,
     };
+
+    useIdeasMock.mockImplementation(() => state);
 
     const view = render(
       <MemoryRouter>
@@ -187,10 +206,7 @@ describe('IdeasBrowsingPage', () => {
 
     expect(screen.getByText('Loading ideas...')).toBeInTheDocument();
 
-    ideasReturn = {
-      ...ideasReturn,
-      isLoading: false,
-    };
+    state.isLoading = false;
 
     view.rerender(
       <MemoryRouter>
@@ -198,7 +214,11 @@ describe('IdeasBrowsingPage', () => {
       </MemoryRouter>
     );
 
-    expect(screen.getByText('No ideas found')).toBeInTheDocument();
+    await waitFor(() => {
+      expect(screen.getByText('No ideas found')).toBeInTheDocument();
+    });
+
+    useIdeasMock.mockImplementation(() => ideasReturn);
   });
 
   it('applies status and sort filters to the displayed ideas', async () => {
@@ -209,7 +229,9 @@ describe('IdeasBrowsingPage', () => {
         createIdea({ id: 'idea-2', title: 'Popular', status: 'Approved', createdAt: new Date('2024-01-02'), upvotes: 10, downvotes: 0, commentCount: 2 }),
         createIdea({ id: 'idea-3', title: 'Discussed', status: 'Approved', createdAt: new Date('2024-01-01'), upvotes: 1, downvotes: 0, commentCount: 10 }),
       ],
-      pendingIdeas: [],
+      pendingIdeas: [
+        createIdea({ id: 'pending-keep', title: 'Pending idea', status: 'Submitted', createdAt: new Date('2024-01-05') }),
+      ],
       isLoading: false,
     };
 
@@ -222,11 +244,46 @@ describe('IdeasBrowsingPage', () => {
     await user.selectOptions(selects[1], 'popular');
 
     const ideaCardsAfterPopular = screen.getAllByTestId(/idea-/i);
-    expect(ideaCardsAfterPopular[0]).toHaveTextContent('Popular');
+    const idsAfterPopular = ideaCardsAfterPopular.map((element) => element.getAttribute('data-testid'));
+    expect(idsAfterPopular[0]).toBe('idea-pending-keep');
+    expect(
+      ideaCardsAfterPopular.some((element) => element.textContent?.includes('Popular')),
+    ).toBe(true);
 
     await user.selectOptions(selects[1], 'controversial');
     const ideaCardsAfterControversial = screen.getAllByTestId(/idea-/i);
-    expect(ideaCardsAfterControversial[0]).toHaveTextContent('Discussed');
+    const idsAfterControversial = ideaCardsAfterControversial.map((element) => element.getAttribute('data-testid'));
+    expect(idsAfterControversial[0]).toBe('idea-pending-keep');
+    expect(idsAfterControversial).toContain('idea-idea-3');
+  });
+
+  it('supports pagination and comment callbacks', async () => {
+    ideasReturn = {
+      ...ideasReturn,
+      pendingIdeas: [
+        createIdea({ id: 'pending-1', title: 'Pending Idea', createdAt: new Date('2024-01-04') }),
+      ],
+      ideas: [
+        createIdea({ id: 'idea-1', title: 'Idea One', createdAt: new Date('2024-01-01') }),
+      ],
+    };
+
+    const user = userEvent.setup();
+    renderPage();
+
+    await user.click(screen.getAllByText('Comment')[0]);
+    expect(mockConsoleLog).toHaveBeenCalledWith('Comment on idea pending-1');
+
+    const nextButton = screen.getByRole('button', { name: /next/i });
+    await user.click(nextButton);
+    expect(screen.getByText('Page 2')).toBeInTheDocument();
+
+    const previousButton = screen.getByRole('button', { name: /previous/i });
+    expect(previousButton).not.toBeDisabled();
+
+    await user.click(previousButton);
+    expect(screen.getByText('Page 1')).toBeInTheDocument();
+    expect(previousButton).toBeDisabled();
   });
 
   it('logs failures when idea loading fails', async () => {
