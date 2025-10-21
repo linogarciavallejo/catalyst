@@ -4,7 +4,7 @@ using Catalyst.Application.Interfaces;
 using Catalyst.Domain.Entities;
 using Catalyst.Domain.Enums;
 using Catalyst.Domain.ValueObjects;
-using Catalyst.Infrastructure.Services;
+using Catalyst.Application.Services;
 using FluentAssertions;
 using NSubstitute;
 using NSubstitute.ReturnsExtensions;

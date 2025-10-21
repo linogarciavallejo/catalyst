@@ -1,7 +1,7 @@
 using Catalyst.Application.Interfaces;
 using Catalyst.Domain.Entities;
 
-namespace Catalyst.Infrastructure.Services;
+namespace Catalyst.Application.Services;
 
 public class IdeaService : IIdeaService
 {
@@ -16,18 +16,16 @@ public class IdeaService : IIdeaService
 
     public async Task<Idea> CreateIdeaAsync(Idea idea)
     {
-        // Validate
         if (idea.Title == null)
             throw new ArgumentException("Idea title is required");
 
         if (idea.Description == null)
             throw new ArgumentException("Idea description is required");
 
-        // Save idea
         var createdIdea = await _ideaRepository.AddAsync(idea);
 
-        // Award points to creator
-        await _gamificationService.AwardPointsAsync(idea.CreatedBy.Value, 50); // 50 EIP points for submission
+        // Award 50 points for idea submission (business rule)
+        await _gamificationService.AwardPointsAsync(idea.CreatedBy.Value, 50);
 
         return createdIdea;
     }
@@ -61,7 +59,7 @@ public class IdeaService : IIdeaService
         if (idea == null)
             return false;
 
-        // Deduct points from creator when idea is deleted
+        // Reclaim the 50 submission points when the idea is deleted
         await _gamificationService.DeductPointsAsync(idea.CreatedBy.Value, 50);
 
         return await _ideaRepository.DeleteAsync(id);
