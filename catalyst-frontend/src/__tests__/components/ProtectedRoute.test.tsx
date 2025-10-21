@@ -1,6 +1,8 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { render, screen } from '@testing-library/react';
-import { BrowserRouter, Routes, Route } from 'react-router-dom';
+import { MemoryRouter, Routes, Route, useLocation } from 'react-router-dom';
+import type { MemoryRouterProps } from 'react-router-dom';
+import type { ReactNode } from 'react';
 import ProtectedRoute from '@/components/ProtectedRoute';
 import { useAuth } from '@/hooks';
 import '@testing-library/jest-dom';
@@ -13,6 +15,27 @@ vi.mock('@/hooks', () => ({
 // Test components
 const ProtectedComponent = () => <div>Protected Content</div>;
 const PublicComponent = () => <div>Public Content</div>;
+const LocationStateProbe = () => {
+  const location = useLocation();
+  return (
+    <pre data-testid="location-probe">{JSON.stringify(location.state)}</pre>
+  );
+};
+
+const renderWithRoutes = (
+  ui: ReactNode,
+  initialEntries: MemoryRouterProps['initialEntries']
+) =>
+  render(
+    <MemoryRouter initialEntries={initialEntries}>
+      <Routes>
+        <Route path="/" element={<PublicComponent />} />
+        <Route path="/login" element={<PublicComponent />} />
+        <Route path="/login/probe" element={<LocationStateProbe />} />
+        <Route path="/protected" element={ui} />
+      </Routes>
+    </MemoryRouter>
+  );
 
 describe('ProtectedRoute Component', () => {
   beforeEach(() => {
@@ -25,19 +48,11 @@ describe('ProtectedRoute Component', () => {
       user: { id: '1', email: 'test@example.com' },
     });
 
-    render(
-      <BrowserRouter>
-        <Routes>
-          <Route
-            path="/"
-            element={
-              <ProtectedRoute>
-                <ProtectedComponent />
-              </ProtectedRoute>
-            }
-          />
-        </Routes>
-      </BrowserRouter>
+    renderWithRoutes(
+      <ProtectedRoute>
+        <ProtectedComponent />
+      </ProtectedRoute>,
+      ['/protected']
     );
 
     expect(screen.getByText('Protected Content')).toBeInTheDocument();
@@ -51,14 +66,11 @@ describe('ProtectedRoute Component', () => {
 
     // Test verifies that unauthenticated users cannot access protected routes
     // The ProtectedRoute component redirects to /login when not authenticated
-    render(
-      <BrowserRouter>
-        <Routes>
-          <Route path="/" element={<PublicComponent />} />
-          <Route path="/protected" element={<ProtectedRoute><ProtectedComponent /></ProtectedRoute>} />
-          <Route path="/login" element={<PublicComponent />} />
-        </Routes>
-      </BrowserRouter>
+    renderWithRoutes(
+      <ProtectedRoute>
+        <ProtectedComponent />
+      </ProtectedRoute>,
+      ['/protected']
     );
 
     // Component renders but protected content should not be accessible
@@ -74,17 +86,29 @@ describe('ProtectedRoute Component', () => {
     // Navigate to a protected route and check that the location is preserved
     // This test verifies the redirect happens correctly with location state
     render(
-      <BrowserRouter>
+      <MemoryRouter initialEntries={[{ pathname: '/protected', state: { custom: 'state' } }]}
+        initialIndex={0}
+      >
         <Routes>
-          <Route path="/" element={<PublicComponent />} />
-          <Route path="/protected" element={<ProtectedRoute><ProtectedComponent /></ProtectedRoute>} />
-          <Route path="/login" element={<PublicComponent />} />
+          <Route
+            path="/protected"
+            element={
+              <ProtectedRoute>
+                <ProtectedComponent />
+              </ProtectedRoute>
+            }
+          />
+          <Route path="/login" element={<LocationStateProbe />} />
         </Routes>
-      </BrowserRouter>
+      </MemoryRouter>
     );
 
-    // Verify that redirect logic is in place
-    expect(screen.getByText('Public Content')).toBeInTheDocument();
+    const state = JSON.parse(
+      screen.getByTestId('location-probe').textContent || 'null'
+    );
+
+    expect(state?.from?.pathname).toBe('/protected');
+    expect(state?.from?.state?.custom).toBe('state');
   });
 
   it('should render children directly when authenticated', () => {
@@ -95,19 +119,11 @@ describe('ProtectedRoute Component', () => {
 
     const TestChild = () => <span data-testid="test-child">Child Element</span>;
 
-    render(
-      <BrowserRouter>
-        <Routes>
-          <Route
-            path="/"
-            element={
-              <ProtectedRoute>
-                <TestChild />
-              </ProtectedRoute>
-            }
-          />
-        </Routes>
-      </BrowserRouter>
+    renderWithRoutes(
+      <ProtectedRoute>
+        <TestChild />
+      </ProtectedRoute>,
+      ['/protected']
     );
 
     expect(screen.getByTestId('test-child')).toBeInTheDocument();
@@ -122,7 +138,7 @@ describe('ProtectedRoute Component', () => {
     const TestChild = () => <span data-testid="test-child">Child Element</span>;
 
     render(
-      <BrowserRouter>
+      <MemoryRouter initialEntries={['/protected']}>
         <Routes>
           <Route
             path="/protected"
@@ -134,7 +150,7 @@ describe('ProtectedRoute Component', () => {
           />
           <Route path="/login" element={<div>Login Page</div>} />
         </Routes>
-      </BrowserRouter>
+      </MemoryRouter>
     );
 
     expect(screen.queryByTestId('test-child')).not.toBeInTheDocument();

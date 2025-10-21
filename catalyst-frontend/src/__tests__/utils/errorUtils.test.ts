@@ -52,6 +52,11 @@ describe('errorUtils', () => {
       expect(getErrorMessage(error)).toBe('Network down');
     });
 
+    it('uses a generic message when axios error lacks response and message', () => {
+      const error = createAxiosError(undefined, {}, '', false);
+      expect(getErrorMessage(error)).toBe('Network error. Please try again.');
+    });
+
     it('handles generic errors and strings', () => {
       expect(getErrorMessage(new Error('Oops'))).toBe('Oops');
       expect(getErrorMessage('Text error')).toBe('Text error');
@@ -130,6 +135,12 @@ describe('errorUtils', () => {
       const error = createAxiosError(503, { message: 'Unavailable' });
       logError(error, 'Chat');
       expect(consoleSpy).toHaveBeenCalledWith('[Chat] [503]: Unavailable', error);
+    });
+
+    it('omits status labels when not provided', () => {
+      const error = new Error('Boom');
+      logError(error);
+      expect(consoleSpy).toHaveBeenCalledWith('[Error]: Boom', error);
     });
   });
 });

@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, beforeEach, afterAll } from 'vitest';
-import { render, screen, waitFor } from '@testing-library/react';
+import { render, screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { MemoryRouter } from 'react-router-dom';
 import ChatPage from '@/pages/ChatPage';
@@ -83,6 +83,21 @@ describe('ChatPage', () => {
         role: 'Contributor',
         eipPoints: 5,
         createdAt: new Date('2023-02-01T00:00:00Z'),
+      },
+    },
+    {
+      id: 'm-3',
+      content: 'Self drafted update',
+      room: 'general',
+      createdAt: new Date('2024-01-03T00:00:00Z'),
+      userId: 'user-1',
+      user: {
+        id: 'user-1',
+        displayName: 'Casey',
+        email: 'casey@example.com',
+        role: 'Creator',
+        eipPoints: 0,
+        createdAt: new Date('2023-03-01T00:00:00Z'),
       },
     },
   ];
@@ -270,6 +285,53 @@ describe('ChatPage', () => {
     await waitFor(() => {
       expect(disconnect).toHaveBeenCalled();
     });
+  });
+
+  it('ignores submissions when the message is blank', async () => {
+    renderChatPage();
+
+    const sendButton = await screen.findByTestId('send-message');
+    const user = userEvent.setup();
+    await user.click(sendButton);
+
+    expect(sendMessage).not.toHaveBeenCalled();
+  });
+
+  it('prevents duplicate submissions while a send is pending', async () => {
+    let resolveSend: (() => void) | undefined;
+    sendMessage.mockImplementation(
+      () =>
+        new Promise<void>((resolve) => {
+          resolveSend = resolve;
+        })
+    );
+
+    renderChatPage();
+
+    const messageInput = await screen.findByTestId('chat-message-input');
+    const sendButton = screen.getByTestId('send-message');
+    const user = userEvent.setup();
+
+    await user.type(messageInput, 'Pending message');
+    await user.click(sendButton);
+    await user.type(messageInput, ' second attempt');
+    await user.click(sendButton);
+
+    expect(sendMessage).toHaveBeenCalledTimes(1);
+
+    resolveSend?.();
+  });
+
+  it('renders user messages without author labels and right aligns them', async () => {
+    renderChatPage();
+
+    const selfBubble = await screen.findByText('Self drafted update');
+    const bubbleContainer = selfBubble.closest('div.max-w-md');
+    const messageRow = selfBubble.closest('div.flex.gap-3');
+
+    expect(bubbleContainer).toHaveClass('bg-blue-500');
+    expect(messageRow).toHaveClass('justify-end');
+    expect(within(bubbleContainer as HTMLElement).queryByText('Casey')).not.toBeInTheDocument();
   });
 });
 

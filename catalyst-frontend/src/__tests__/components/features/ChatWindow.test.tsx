@@ -85,4 +85,41 @@ describe('ChatWindow', () => {
       expect(onSendMessage).toHaveBeenCalledWith('Enter message');
     });
   });
+
+  it('handles own messages, empty submissions, and send failures', async () => {
+    const failingSend = vi.fn().mockRejectedValue(new Error('network'));
+    const consoleSpy = vi.spyOn(console, 'error').mockImplementation(() => undefined);
+
+    render(
+      <ChatWindow
+        messages={[
+          {
+            id: 'self',
+            content: 'Hi there',
+            sender: { id: 'me', displayName: 'Me' },
+            timestamp: new Date('2023-12-31T23:58:00Z'),
+            isOwn: true,
+          },
+        ]}
+        onSendMessage={failingSend}
+      />
+    );
+
+    expect(screen.queryByText('Me')).not.toBeInTheDocument();
+
+    const input = screen.getByPlaceholderText('Type a message...');
+    fireEvent.change(input, { target: { value: '   ' } });
+    fireEvent.click(screen.getByRole('button', { name: 'Send' }));
+    expect(failingSend).not.toHaveBeenCalled();
+
+    fireEvent.change(input, { target: { value: 'retry' } });
+    fireEvent.click(screen.getByRole('button', { name: 'Send' }));
+
+    await waitFor(() => {
+      expect(failingSend).toHaveBeenCalledWith('retry');
+    });
+
+    expect(consoleSpy).toHaveBeenCalledWith('Failed to send message:', expect.any(Error));
+    consoleSpy.mockRestore();
+  });
 });

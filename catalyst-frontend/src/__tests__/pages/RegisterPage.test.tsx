@@ -1,6 +1,6 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { render, screen, waitFor, fireEvent } from '@testing-library/react';
-import { BrowserRouter } from 'react-router-dom';
+import { BrowserRouter, MemoryRouter } from 'react-router-dom';
 import RegisterPage from '@/pages/RegisterPage';
 import { useAuth } from '@/hooks';
 import '@testing-library/jest-dom';
@@ -23,6 +23,7 @@ vi.mock('react-router-dom', async () => {
 describe('RegisterPage Component', () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    mockNavigate.mockClear();
     (useAuth as any).mockReturnValue({
       register: vi.fn(),
       isLoading: false,
@@ -255,5 +256,126 @@ describe('RegisterPage Component', () => {
     expect(passwordInput.disabled).toBe(true);
     expect(confirmPasswordInput.disabled).toBe(true);
     expect(submitButton.disabled).toBe(true);
+  });
+
+  it('redirects authenticated users to the requested path from location state', async () => {
+    (useAuth as any).mockReturnValue({
+      register: vi.fn(),
+      isLoading: false,
+      error: null,
+      isAuthenticated: true,
+    });
+
+    render(
+      <MemoryRouter
+        initialEntries={[{
+          pathname: '/register',
+          state: { from: { pathname: '/ideas/alpha' } },
+        }]}
+      >
+        <RegisterPage />
+      </MemoryRouter>
+    );
+
+    await waitFor(() => {
+      expect(mockNavigate).toHaveBeenCalledWith('/ideas/alpha', { replace: true });
+    });
+  });
+
+  it('redirects authenticated users to home when no previous location exists', async () => {
+    (useAuth as any).mockReturnValue({
+      register: vi.fn(),
+      isLoading: false,
+      error: null,
+      isAuthenticated: true,
+    });
+
+    render(
+      <MemoryRouter initialEntries={['/register']}>
+        <RegisterPage />
+      </MemoryRouter>
+    );
+
+    await waitFor(() => {
+      expect(mockNavigate).toHaveBeenCalledWith('/', { replace: true });
+    });
+  });
+
+  it('surface errors from the register action', async () => {
+    const consoleErrorSpy = vi.spyOn(console, 'error').mockImplementation(() => {});
+    const mockRegister = vi.fn().mockRejectedValue(new Error('Boom'));
+    (useAuth as any).mockReturnValue({
+      register: mockRegister,
+      isLoading: false,
+      error: null,
+      isAuthenticated: false,
+    });
+
+    render(
+      <BrowserRouter>
+        <RegisterPage />
+      </BrowserRouter>
+    );
+
+    const emailInput = screen.getByTestId('register-email-input');
+    const displayNameInput = screen.getByTestId('register-displayname-input');
+    const passwordInput = screen.getByTestId('register-password-input');
+    const confirmPasswordInput = screen.getByTestId('register-confirm-password-input');
+    const checkbox = screen.getByRole('checkbox');
+    const submitButton = screen.getByTestId('register-submit');
+
+    fireEvent.change(emailInput, { target: { value: 'test@example.com' } });
+    fireEvent.change(displayNameInput, { target: { value: 'Test User' } });
+    fireEvent.change(passwordInput, { target: { value: 'Password123!' } });
+    fireEvent.change(confirmPasswordInput, { target: { value: 'Password123!' } });
+    fireEvent.click(checkbox);
+    fireEvent.click(submitButton);
+
+    await waitFor(() => {
+      expect(screen.getByText('Boom')).toBeInTheDocument();
+    });
+
+    expect(consoleErrorSpy).toHaveBeenCalledWith('Registration error:', expect.any(Error));
+    consoleErrorSpy.mockRestore();
+  });
+
+  it('uses a fallback error message when register rejects with a non-error value', async () => {
+    const consoleErrorSpy = vi.spyOn(console, 'error').mockImplementation(() => {});
+    const mockRegister = vi.fn().mockRejectedValue('totally broken');
+    (useAuth as any).mockReturnValue({
+      register: mockRegister,
+      isLoading: false,
+      error: null,
+      isAuthenticated: false,
+    });
+
+    render(
+      <BrowserRouter>
+        <RegisterPage />
+      </BrowserRouter>
+    );
+
+    const emailInput = screen.getByTestId('register-email-input');
+    const displayNameInput = screen.getByTestId('register-displayname-input');
+    const passwordInput = screen.getByTestId('register-password-input');
+    const confirmPasswordInput = screen.getByTestId('register-confirm-password-input');
+    const checkbox = screen.getByRole('checkbox');
+    const submitButton = screen.getByTestId('register-submit');
+
+    fireEvent.change(emailInput, { target: { value: 'test@example.com' } });
+    fireEvent.change(displayNameInput, { target: { value: 'Test User' } });
+    fireEvent.change(passwordInput, { target: { value: 'Password123!' } });
+    fireEvent.change(confirmPasswordInput, { target: { value: 'Password123!' } });
+    fireEvent.click(checkbox);
+    fireEvent.click(submitButton);
+
+    await waitFor(() => {
+      expect(
+        screen.getByText('Registration failed. Please try again.')
+      ).toBeInTheDocument();
+    });
+
+    expect(consoleErrorSpy).toHaveBeenCalledWith('Registration error:', 'totally broken');
+    consoleErrorSpy.mockRestore();
   });
 });

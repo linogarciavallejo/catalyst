@@ -111,6 +111,19 @@ describe('NotificationService', () => {
     expect(onCancel).toHaveBeenCalled();
   });
 
+  it('supports confirmation modal without onCancel handler', () => {
+    antdMocks.modalConfirm.mockImplementation((config) => {
+      config.onOk?.();
+      config.onCancel?.();
+    });
+
+    const onOk = vi.fn();
+
+    NotificationService.confirm('Confirm?', 'Are you sure?', onOk);
+
+    expect(onOk).toHaveBeenCalled();
+  });
+
   it('opens persistent notifications with forced placement and duration', () => {
     NotificationService.persistent('Title', 'Body', 'success');
     expect(antdMocks.notification.success).toHaveBeenCalledWith({

@@ -58,4 +58,28 @@ describe('IdeaCard', () => {
     expect(onEdit).toHaveBeenCalledWith('idea-1');
     expect(onDelete).toHaveBeenCalledWith('idea-1');
   });
+
+  it('handles missing optional fields and fallback paths', () => {
+    const minimalIdea = {
+      id: 'idea-2',
+      title: 'Anonymous concept',
+      description: 'Details pending',
+      status: 'mystery',
+      createdAt: new Date('2024-02-02T00:00:00Z'),
+      updatedAt: new Date('2024-02-02T00:00:00Z'),
+      authorId: 'u2',
+      upvotes: undefined,
+      downvotes: undefined,
+      commentCount: undefined,
+    } as any;
+
+    render(<IdeaCard idea={minimalIdea} />);
+
+    expect(screen.queryByText('Posting...')).not.toBeInTheDocument();
+    expect(screen.queryByText('Updating...')).not.toBeInTheDocument();
+    expect(screen.getByText(/by Anonymous/i)).toBeInTheDocument();
+    expect(screen.queryByText('Edit')).not.toBeInTheDocument();
+    expect(screen.queryByText('Delete')).not.toBeInTheDocument();
+    expect(screen.getAllByText('0')[0]).toBeInTheDocument();
+  });
 });

@@ -107,4 +107,34 @@ describe('SettingsPage', () => {
       expect(mockConsoleError).toHaveBeenCalledWith('Failed to logout:', expect.any(Error));
     });
   });
+
+  it('renders default settings when no user is provided', () => {
+    (useAuth as unknown as vi.Mock).mockReturnValue({ user: null, logout });
+
+    render(
+      <MemoryRouter>
+        <SettingsPage />
+      </MemoryRouter>
+    );
+
+    expect(screen.getByLabelText('Display Name')).toHaveValue('');
+    expect(screen.getByLabelText('Email')).toHaveValue('');
+  });
+
+  it('logs an error when saving settings throws', async () => {
+    const user = userEvent.setup();
+    const consoleLog = vi.spyOn(console, 'log').mockImplementation(() => {
+      throw new Error('save failed');
+    });
+
+    renderPage();
+
+    await user.click(screen.getByRole('button', { name: 'Save Settings' }));
+
+    await waitFor(() => {
+      expect(mockConsoleError).toHaveBeenCalledWith('Failed to save settings:', expect.any(Error));
+    });
+
+    consoleLog.mockRestore();
+  });
 });

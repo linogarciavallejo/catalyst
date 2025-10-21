@@ -164,4 +164,99 @@ describe('NotificationsPage', () => {
 
     expect(await screen.findByText('No notifications yet')).toBeInTheDocument();
   });
+
+  it('logs connection failures and recovers loading state', async () => {
+    connect.mockRejectedValueOnce(new Error('connect exploded'));
+
+    renderPage();
+
+    await waitFor(() => {
+      expect(mockConsoleError).toHaveBeenCalledWith(
+        'Failed to connect to notifications:',
+        expect.any(Error)
+      );
+    });
+
+    await waitFor(() => {
+      expect(screen.queryByText('Loading notifications...')).not.toBeInTheDocument();
+    });
+  });
+
+  it('logs disconnect failures during cleanup', async () => {
+    disconnect.mockRejectedValueOnce(new Error('disconnect exploded'));
+
+    const view = renderPage();
+
+    await waitFor(() => {
+      expect(connect).toHaveBeenCalledTimes(1);
+    });
+
+    view.unmount();
+
+    await waitFor(() => {
+      expect(mockConsoleError).toHaveBeenCalledWith(
+        'Failed to disconnect:',
+        expect.any(Error)
+      );
+    });
+  });
+
+  it('maps icons and colors for all notification types', async () => {
+    const baseDate = new Date('2024-01-03T00:00:00Z');
+    notificationsReturn = {
+      ...notificationsReturn,
+      notifications: [
+        {
+          id: 'n3',
+          userId: 'u2',
+          message: 'Your idea earned a vote',
+          type: 'IdeaVoted',
+          isRead: false,
+          createdAt: baseDate,
+        },
+        {
+          id: 'n4',
+          userId: 'u3',
+          message: 'New message waiting for you',
+          type: 'ChatMessage',
+          isRead: false,
+          createdAt: new Date(baseDate.getTime() + 1_000),
+        },
+        {
+          id: 'n5',
+          userId: 'u4',
+          message: 'Something else happened',
+          type: 'UnknownType',
+          isRead: true,
+          createdAt: new Date(baseDate.getTime() + 2_000),
+        },
+      ],
+    };
+
+    (useNotifications as unknown as vi.Mock).mockImplementation(() => notificationsReturn);
+
+    renderPage();
+
+    await waitFor(() => {
+      expect(screen.getByText('IdeaVoted')).toBeInTheDocument();
+      expect(screen.getByText('ChatMessage')).toBeInTheDocument();
+      expect(screen.getByText('UnknownType')).toBeInTheDocument();
+    });
+
+    expect(screen.getByText('👍')).toBeInTheDocument();
+    expect(screen.getByText('✉️')).toBeInTheDocument();
+    expect(screen.getByText('🔔')).toBeInTheDocument();
+
+    const votedCard = screen.getByText('IdeaVoted').closest('div.p-4');
+    expect(votedCard).toHaveClass('bg-purple-50');
+    expect(votedCard).toHaveClass('border-purple-200');
+
+    const chatCard = screen.getByText('ChatMessage').closest('div.p-4');
+    expect(chatCard).toHaveClass('bg-yellow-50');
+    expect(chatCard).toHaveClass('border-yellow-200');
+
+    const fallbackCard = screen.getByText('UnknownType').closest('div.p-4');
+    expect(fallbackCard).toHaveClass('bg-gray-50');
+    expect(fallbackCard).toHaveClass('border-gray-200');
+  });
 });

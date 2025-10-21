@@ -199,4 +199,48 @@ describe('useChat', () => {
     expect(result.current.messages).toEqual([]);
     expect(result.current.error).toBeNull();
   });
+
+  it('falls back to generic messages when services reject with non-errors', async () => {
+    chatMocks.getCurrentUserMock.mockResolvedValue({ id: 'user-1' });
+    chatMocks.getTokenMock.mockReturnValue('token-123');
+    chatMocks.connectMock.mockRejectedValueOnce('nope');
+
+    const { result } = renderHook(() => useChat());
+
+    await act(async () => {
+      await result.current.connect();
+    });
+    expect(result.current.error).toBe('Failed to connect to chat');
+    expect(result.current.isConnected).toBe(false);
+
+    chatMocks.connectMock.mockResolvedValue();
+    chatMocks.disconnectMock.mockRejectedValueOnce('bye');
+    chatMocks.sendMessageMock.mockRejectedValueOnce('bad send');
+    chatMocks.joinRoomMock.mockRejectedValueOnce('bad join');
+    chatMocks.leaveRoomMock.mockRejectedValueOnce('bad leave');
+
+    await act(async () => {
+      await result.current.connect();
+    });
+
+    await act(async () => {
+      await expect(result.current.sendMessage('room', 'text')).rejects.toBe('bad send');
+    });
+    expect(result.current.error).toBe('Failed to send message');
+
+    await act(async () => {
+      await expect(result.current.joinRoom('room')).rejects.toBe('bad join');
+    });
+    expect(result.current.error).toBe('Failed to join room');
+
+    await act(async () => {
+      await expect(result.current.leaveRoom('room')).rejects.toBe('bad leave');
+    });
+    expect(result.current.error).toBe('Failed to leave room');
+
+    await act(async () => {
+      await result.current.disconnect();
+    });
+    expect(result.current.error).toBe('Failed to disconnect from chat');
+  });
 });

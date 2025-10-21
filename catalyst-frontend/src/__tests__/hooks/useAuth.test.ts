@@ -81,4 +81,29 @@ describe('useAuth', () => {
     expect(localStorage.getItem('user')).toBeNull();
     expect(mockLogout).toHaveBeenCalled();
   });
+
+  it('uses fallback auth error messages when services reject with primitives', async () => {
+    mockLogin.mockRejectedValue('nope');
+    mockRegister.mockRejectedValue('bad');
+
+    const { result } = renderHook(() => useAuth());
+
+    await act(async () => {
+      await expect(
+        result.current.login({ email: 'user@test.com', password: 'secret' })
+      ).rejects.toBe('nope');
+    });
+    expect(result.current.error).toBe('Login failed');
+
+    await act(async () => {
+      await expect(
+        result.current.register({
+          email: 'user@test.com',
+          displayName: 'User',
+          password: 'secret',
+        })
+      ).rejects.toBe('bad');
+    });
+    expect(result.current.error).toBe('Registration failed');
+  });
 });

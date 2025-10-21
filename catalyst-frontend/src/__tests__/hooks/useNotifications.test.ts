@@ -190,4 +190,48 @@ describe('useNotifications', () => {
     });
     expect(result.current.error).toBe('mark failed');
   });
+
+  it('emits fallback errors when services reject with primitives', async () => {
+    notificationMocks.getCurrentUserMock.mockResolvedValue({ id: 'user-1' });
+    notificationMocks.getTokenMock.mockReturnValue('token-123');
+    notificationMocks.connectMock.mockRejectedValueOnce('no auth');
+
+    const { result } = renderHook(() => useNotifications());
+
+    await act(async () => {
+      await result.current.connect();
+    });
+    expect(result.current.error).toBe('Failed to connect to notifications');
+
+    notificationMocks.connectMock.mockResolvedValue();
+    notificationMocks.disconnectMock.mockRejectedValueOnce('bye');
+    notificationMocks.markAsReadMock.mockRejectedValueOnce('nope');
+
+    await act(async () => {
+      await result.current.connect();
+    });
+
+    act(() => {
+      notificationMocks.listeners
+        .get('notificationReceived')?.({ ...baseNotification, id: 'n-5' });
+      notificationMocks.listeners
+        .get('notificationReceived')?.({ ...baseNotification, id: 'n-6' });
+    });
+
+    await act(async () => {
+      await expect(result.current.markAsRead('n-5')).rejects.toBe('nope');
+    });
+    expect(result.current.error).toBe('Failed to mark as read');
+
+    notificationMocks.markAsReadMock.mockRejectedValueOnce('nah');
+    await act(async () => {
+      await expect(result.current.markAllAsRead()).rejects.toBe('nah');
+    });
+    expect(result.current.error).toBe('Failed to mark all as read');
+
+    await act(async () => {
+      await result.current.disconnect();
+    });
+    expect(result.current.error).toBe('Failed to disconnect from notifications');
+  });
 });

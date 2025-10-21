@@ -57,4 +57,36 @@ describe('Form components', () => {
     fireEvent.click(screen.getByTestId('reset'));
     expect((input as HTMLInputElement).value).toBe('');
   });
+
+  it('coerces non-string values and skips validation when no validator is provided', async () => {
+    const handleSubmit = vi.fn();
+
+    const ValueProbe: FC = () => {
+      const { values } = useFormContext();
+      return <span data-testid="current-count">{String(values.count ?? '')}</span>;
+    };
+
+    render(
+      <Form initialValues={{ count: 5 }} onSubmit={handleSubmit}>
+        <FormField name="count" label="Count" />
+        <ValueProbe />
+        <button type="submit">Apply</button>
+      </Form>
+    );
+
+    const input = screen.getByRole('textbox');
+    expect((input as HTMLInputElement).value).toBe('');
+
+    fireEvent.change(input, { target: { value: '7' } });
+    fireEvent.blur(input);
+
+    expect(screen.getByTestId('current-count')).toHaveTextContent('7');
+    expect(screen.queryByRole('alert')).not.toBeInTheDocument();
+
+    await act(async () => {
+      fireEvent.submit(screen.getByText('Apply').closest('form')!);
+    });
+
+    expect(handleSubmit).toHaveBeenCalledWith({ count: '7' });
+  });
 });

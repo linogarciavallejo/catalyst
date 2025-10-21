@@ -1,6 +1,6 @@
 import React from 'react';
 import { describe, it, expect, vi, beforeEach, afterAll } from 'vitest';
-import { render, screen, waitFor } from '@testing-library/react';
+import { render, screen, waitFor, fireEvent } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { MemoryRouter, Routes, Route } from 'react-router-dom';
 import IdeaDetailPage from '@/pages/IdeaDetailPage';
@@ -286,6 +286,51 @@ describe('IdeaDetailPage', () => {
     expect(commentInput).toHaveValue('Will fail');
     expect(getComments).toHaveBeenCalledTimes(1);
     expect(mockConsoleError).toHaveBeenCalledWith('Failed to add comment:', expect.any(Error));
+  });
+
+  it('prevents submitting blank comments', async () => {
+    renderIdeaDetailPage();
+
+    const commentInput = await screen.findByTestId('comment-input');
+    const form = commentInput.closest('form');
+    const user = userEvent.setup();
+
+    await screen.findByText('Innovative Idea');
+    await user.type(commentInput, '   ');
+
+    fireEvent.submit(form!);
+
+    expect(addComment).not.toHaveBeenCalled();
+    expect(commentInput).toHaveValue('   ');
+  });
+
+  it('shows a generic error when loading the idea fails', async () => {
+    loadIdea.mockRejectedValueOnce(new Error('boom'));
+
+    renderIdeaDetailPage();
+
+    await waitFor(() => {
+      expect(screen.getByText('Failed to load idea')).toBeInTheDocument();
+    });
+
+    expect(mockConsoleError).toHaveBeenCalledWith('Failed to load idea:', expect.any(Error));
+  });
+
+  it.each([
+    ['UnderReview', 'bg-yellow-100', 'text-yellow-800'],
+    ['Rejected', 'bg-red-100', 'text-red-800'],
+    ['InProgress', 'bg-gray-100', 'text-gray-800'],
+  ] as const)('applies status styling for %s ideas', async (status, bgClass, textClass) => {
+    loadIdea.mockResolvedValueOnce({
+      ...createIdea(),
+      status: status as Idea['status'],
+    });
+
+    renderIdeaDetailPage();
+
+    const badge = await screen.findByText(status, { selector: 'span' });
+    expect(badge).toHaveClass(bgClass);
+    expect(badge).toHaveClass(textClass);
   });
 });
 

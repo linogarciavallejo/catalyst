@@ -34,4 +34,14 @@ describe('Loading utilities', () => {
     expect(skeleton.className).toContain('w-10');
     expect(skeleton.className).toContain('h-10');
   });
+
+  it('applies default spinner size and skeleton shape when props omitted', () => {
+    const { container, rerender } = render(<Spinner />);
+    const spinner = container.querySelector('[role="status"]');
+    expect(spinner).toHaveClass('w-6', 'h-6');
+
+    rerender(<Skeleton />);
+    const skeleton = container.firstChild as HTMLElement;
+    expect(skeleton.className).toContain('rounded-md');
+  });
 });

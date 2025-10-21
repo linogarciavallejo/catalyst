@@ -6,6 +6,17 @@ import { useIdeas } from '@/hooks';
 import type { Idea } from '@/types';
 import '@testing-library/jest-dom';
 
+const userProfileMock = vi.hoisted(() =>
+  vi.fn((props) => {
+    // capture props for assertions
+    return <div data-testid="user-profile" data-props={JSON.stringify(props)} />;
+  })
+);
+
+vi.mock('@/components/features', () => ({
+  UserProfile: (props: any) => userProfileMock(props),
+}));
+
 vi.mock('@/hooks', () => ({
   useIdeas: vi.fn(),
 }));
@@ -48,12 +59,22 @@ const renderPage = (userId = 'user-1') =>
     </MemoryRouter>
   );
 
+const renderFallback = () =>
+  render(
+    <MemoryRouter initialEntries={['/profile']}>
+      <Routes>
+        <Route path="/profile" element={<UserProfilePage />} />
+      </Routes>
+    </MemoryRouter>
+  );
+
 describe('UserProfilePage', () => {
   const getIdeas = vi.fn();
 
   beforeEach(() => {
     vi.clearAllMocks();
     mockConsoleError.mockClear();
+    userProfileMock.mockClear();
 
     getIdeas.mockResolvedValue(undefined);
 
@@ -96,5 +117,36 @@ describe('UserProfilePage', () => {
     await waitFor(() => {
       expect(mockConsoleError).toHaveBeenCalledWith('Failed to load ideas:', expect.any(Error));
     });
+  });
+
+  it('falls back to the default user id when the route is missing the param', () => {
+    (useIdeas as unknown as vi.Mock).mockReturnValue({
+      ideas: [
+        createIdea({ id: 'idea-u1', title: 'Fallback idea', authorId: 'u1' }),
+      ],
+      getIdeas,
+    });
+
+    renderFallback();
+
+    renderFallback();
+
+    expect(userProfileMock).toHaveBeenCalled();
+    const props = userProfileMock.mock.calls[0][0];
+    expect(props.user.id).toBe('u1');
+  });
+
+  it('uses the alternate status styling when ideas are not approved', () => {
+    (useIdeas as unknown as vi.Mock).mockReturnValue({
+      ideas: [
+        createIdea({ id: 'idea-3', title: 'Pending idea', authorId: 'user-1', status: 'Rejected' }),
+      ],
+      getIdeas,
+    });
+
+    renderPage('user-1');
+
+    const status = screen.getByText('Rejected');
+    expect(status).toHaveClass('bg-yellow-100', { exact: false });
   });
 });

@@ -76,4 +76,18 @@ describe('AppContextProvider', () => {
     expect(result.current.itemsPerPage).toBe(50);
     expect(localStorage.getItem('itemsPerPage')).toBe('50');
   });
+
+  it('hydrates state from persisted storage values', () => {
+    localStorage.setItem(
+      'appSettings',
+      JSON.stringify({ theme: 'dark', sidebarCollapsed: true })
+    );
+    localStorage.setItem('itemsPerPage', '30');
+
+    const { result } = renderHook(() => useAppContext(), { wrapper });
+
+    expect(result.current.settings.theme).toBe('dark');
+    expect(result.current.isSidebarOpen).toBe(false);
+    expect(result.current.itemsPerPage).toBe(30);
+  });
 });

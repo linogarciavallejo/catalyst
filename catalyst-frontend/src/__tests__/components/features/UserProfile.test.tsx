@@ -57,4 +57,58 @@ describe('UserProfile', () => {
     expect(onFollowClick).toHaveBeenCalled();
     expect(onMessageClick).toHaveBeenCalled();
   });
+
+  it('omits optional sections for guest profiles without stats', () => {
+    const { container } = render(
+      <UserProfile
+        user={{
+          ...user,
+          role: 'Guest',
+          bio: undefined,
+          ideasCount: undefined,
+          commentsCount: undefined,
+          followersCount: undefined,
+          followingCount: undefined,
+        } as any}
+      />
+    );
+
+    const avatar = container.querySelector('.w-20');
+    expect(avatar).toHaveClass('bg-gray-500');
+    expect(screen.queryByText('Ideas')).not.toBeInTheDocument();
+    expect(screen.queryByText('Follow')).not.toBeInTheDocument();
+  });
+
+  it('uses default avatar styling and disables actions while loading', () => {
+    const onFollowClick = vi.fn();
+    const onMessageClick = vi.fn();
+
+    const { container } = render(
+      <UserProfile
+        user={{
+          ...user,
+          role: 'Creator' as any,
+          displayName: 'Morgan Rivers',
+          email: 'morgan@example.com',
+        } as any}
+        onFollowClick={onFollowClick}
+        onMessageClick={onMessageClick}
+        loading
+      />
+    );
+
+    const avatar = container.querySelector('.w-20');
+    expect(avatar).toHaveClass('bg-blue-500');
+
+    const follow = screen.getByText('Follow');
+    const message = screen.getByText('Message');
+    expect(follow).toBeDisabled();
+    expect(message).toBeDisabled();
+
+    fireEvent.click(follow);
+    fireEvent.click(message);
+
+    expect(onFollowClick).not.toHaveBeenCalled();
+    expect(onMessageClick).not.toHaveBeenCalled();
+  });
 });

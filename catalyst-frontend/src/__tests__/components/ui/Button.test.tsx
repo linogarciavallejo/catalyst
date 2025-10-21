@@ -41,4 +41,23 @@ describe('Button', () => {
     const rightIcon = screen.getByTestId('icon');
     expect(rightIcon.parentElement?.previousSibling).not.toBeNull();
   });
+
+  it('merges disabled props and applies full width styling', () => {
+    const { rerender } = render(
+      <Button isDisabled fullWidth>
+        Save
+      </Button>
+    );
+
+    let button = screen.getByRole('button', { name: 'Save' });
+    expect(button).toBeDisabled();
+    expect(button.className).toContain('w-full');
+
+    rerender(
+      <Button disabled>Save</Button>
+    );
+
+    button = screen.getByRole('button', { name: 'Save' });
+    expect(button).toBeDisabled();
+  });
 });
