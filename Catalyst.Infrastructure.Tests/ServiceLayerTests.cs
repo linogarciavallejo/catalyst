@@ -8,8 +8,14 @@ using Catalyst.Infrastructure.Services;
 using FluentAssertions;
 using NSubstitute;
 using NSubstitute.ReturnsExtensions;
+using static Catalyst.Infrastructure.Tests.Services.TestIdGenerator;
 
 namespace Catalyst.Infrastructure.Tests.Services;
+
+internal static class TestIdGenerator
+{
+    internal static string NewId() => Guid.NewGuid().ToString("N");
+}
 
 /// <summary>
 /// Tests for IdeaService business logic
@@ -35,8 +41,6 @@ public class IdeaServiceTests
         idea.Title = IdeaTitle.Create(title);
         return idea;
     }
-
-    private static string NewId() => Guid.NewGuid().ToString("N");
 
     public IdeaServiceTests()
     {
