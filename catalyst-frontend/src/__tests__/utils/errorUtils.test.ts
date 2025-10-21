@@ -85,9 +85,15 @@ describe('errorUtils', () => {
     });
 
     it('returns false for non-axios errors', () => {
-      expect(getErrorStatus(new Error('test'))).toBeUndefined();
-      expect(isNetworkError(new Error('test'))).toBe(false);
-      expect(isNotFoundError(new Error('test'))).toBe(false);
+      const error = new Error('test');
+      expect(getErrorStatus(error)).toBeUndefined();
+      expect(isNetworkError(error)).toBe(false);
+      expect(isNotFoundError(error)).toBe(false);
+      expect(isUnauthorizedError(error)).toBe(false);
+      expect(isForbiddenError(error)).toBe(false);
+      expect(isBadRequestError(error)).toBe(false);
+      expect(isRateLimitError(error)).toBe(false);
+      expect(isServerError(error)).toBe(false);
     });
   });
 

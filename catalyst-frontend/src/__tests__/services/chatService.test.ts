@@ -1,11 +1,18 @@
 import { describe, it, expect, beforeEach, vi } from 'vitest';
 import { ChatService } from '@/services/chatService';
 
+let nextStartError: Error | null = null;
+
 const createBuilder = () => {
   const eventHandlers: Record<string, (payload?: unknown) => void> = {};
   const connection = {
     state: 'Disconnected',
     start: vi.fn(async () => {
+      if (nextStartError) {
+        const error = nextStartError;
+        nextStartError = null;
+        throw error;
+      }
       connection.state = 'Connected';
     }),
     stop: vi.fn(async () => {
@@ -63,8 +70,18 @@ describe('ChatService', () => {
   it('connects once, joins chat, and emits events to listeners', async () => {
     const messageHandler = vi.fn();
     const connectedHandler = vi.fn();
+    const joinedHandler = vi.fn();
+    const leftHandler = vi.fn();
+    const reconnectingHandler = vi.fn();
+    const reconnectedHandler = vi.fn();
+    const disconnectedHandler = vi.fn();
     ChatService.on('messageReceived', messageHandler);
     ChatService.on('connected', connectedHandler);
+    ChatService.on('userJoined', joinedHandler);
+    ChatService.on('userLeft', leftHandler);
+    ChatService.on('connecting', reconnectingHandler);
+    ChatService.on('reconnected', reconnectedHandler);
+    ChatService.on('disconnected', disconnectedHandler);
 
     await ChatService.connect('user-1', 'token-abc');
 
@@ -85,9 +102,29 @@ describe('ChatService', () => {
     events['ReceiveMessage']?.({ id: 'm1' });
     expect(messageHandler).toHaveBeenCalledWith({ id: 'm1' });
 
+    events['UserJoined']?.({ id: 'join-1' });
+    expect(joinedHandler).toHaveBeenCalledWith({ id: 'join-1' });
+
+    events['UserLeft']?.('left-1');
+    expect(leftHandler).toHaveBeenCalledWith('left-1');
+
+    events['reconnecting']?.();
+    expect(reconnectingHandler).toHaveBeenCalled();
+
+    events['reconnected']?.();
+    expect(reconnectedHandler).toHaveBeenCalled();
+
+    events['close']?.();
+    expect(disconnectedHandler).toHaveBeenCalled();
+
     ChatService.off('messageReceived', messageHandler);
     events['ReceiveMessage']?.({ id: 'm2' });
     expect(messageHandler).toHaveBeenCalledTimes(1);
+    ChatService.off('userJoined', joinedHandler);
+    ChatService.off('userLeft', leftHandler);
+    ChatService.off('connecting', reconnectingHandler);
+    ChatService.off('reconnected', reconnectedHandler);
+    ChatService.off('disconnected', disconnectedHandler);
   });
 
   it('avoids reconnecting when already connected and supports graceful disconnect', async () => {
@@ -102,6 +139,21 @@ describe('ChatService', () => {
     await ChatService.disconnect();
     expect(connection.stop).toHaveBeenCalled();
     expect(ChatService.isConnected()).toBe(false);
+  });
+
+  it('logs disconnect errors while still clearing the cached connection', async () => {
+    await ChatService.connect('user-1', 'token-abc');
+    const [{ __connection: connection }] = builders;
+    const consoleSpy = vi.spyOn(console, 'error').mockImplementation(() => {});
+
+    connection.stop.mockRejectedValueOnce(new Error('disconnect boom'));
+
+    await ChatService.disconnect();
+
+    expect(consoleSpy).toHaveBeenCalledWith('Error disconnecting from chat:', expect.any(Error));
+    expect(ChatService.isConnected()).toBe(false);
+
+    consoleSpy.mockRestore();
   });
 
   it('throws when performing actions while disconnected and surfaces transport errors', async () => {
@@ -127,6 +179,33 @@ describe('ChatService', () => {
     await expect(ChatService.leaveRoom('general')).rejects.toThrow('leave failed');
     expect(consoleSpy).toHaveBeenCalledWith('Error leaving room:', expect.any(Error));
 
+    consoleSpy.mockRestore();
+  });
+
+  it('invokes room actions successfully when connected', async () => {
+    await ChatService.connect('user-1', 'token-abc');
+    const [{ __connection: connection }] = builders;
+
+    connection.invoke.mockClear();
+    await ChatService.joinRoom('ideas');
+    expect(connection.invoke).toHaveBeenCalledWith('JoinRoom', 'ideas');
+
+    connection.invoke.mockClear();
+    await ChatService.leaveRoom('ideas');
+    expect(connection.invoke).toHaveBeenCalledWith('LeaveRoom', 'ideas');
+
+    connection.invoke.mockClear();
+    await ChatService.sendMessage('ideas', 'hello world');
+    expect(connection.invoke).toHaveBeenCalledWith('SendMessage', 'ideas', 'hello world');
+  });
+
+  it('logs and rethrows errors when the chat connection fails to start', async () => {
+    nextStartError = new Error('start failed');
+    const consoleSpy = vi.spyOn(console, 'error').mockImplementation(() => {});
+
+    await expect(ChatService.connect('user-2', 'bad-token')).rejects.toThrow('start failed');
+
+    expect(consoleSpy).toHaveBeenCalledWith('Chat connection failed:', expect.any(Error));
     consoleSpy.mockRestore();
   });
 });
