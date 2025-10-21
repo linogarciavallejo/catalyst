@@ -1,7 +1,6 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
-import { render, screen, waitFor } from '@testing-library/react';
-import userEvent from '@testing-library/user-event';
-import { BrowserRouter } from 'react-router-dom';
+import { render, screen, waitFor, fireEvent } from '@testing-library/react';
+import { BrowserRouter, MemoryRouter } from 'react-router-dom';
 import RegisterPage from '@/pages/RegisterPage';
 import { useAuth } from '@/hooks';
 import '@testing-library/jest-dom';
@@ -24,6 +23,7 @@ vi.mock('react-router-dom', async () => {
 describe('RegisterPage Component', () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    mockNavigate.mockClear();
     (useAuth as any).mockReturnValue({
       register: vi.fn(),
       isLoading: false,
@@ -76,7 +76,6 @@ describe('RegisterPage Component', () => {
   });
 
   it('should validate email field is required', async () => {
-    const user = userEvent.setup();
     render(
       <BrowserRouter>
         <RegisterPage />
@@ -84,7 +83,7 @@ describe('RegisterPage Component', () => {
     );
 
     const submitButton = screen.getByTestId('register-submit');
-    await user.click(submitButton);
+    fireEvent.click(submitButton);
 
     await waitFor(() => {
       expect(screen.getByText('Email is required')).toBeInTheDocument();
@@ -102,7 +101,6 @@ describe('RegisterPage Component', () => {
       isAuthenticated: false,
     });
 
-    const user = userEvent.setup();
     render(
       <BrowserRouter>
         <RegisterPage />
@@ -116,21 +114,23 @@ describe('RegisterPage Component', () => {
     const checkbox = screen.getByRole('checkbox') as HTMLInputElement;
     const submitButton = screen.getByTestId('register-submit');
 
-    await user.type(emailInput, 'test@example.com');
-    await user.type(displayNameInput, 'Test User');
-    await user.type(passwordInput, 'Password123!');
-    await user.type(confirmPasswordInput, 'Password123!');
-    await user.click(checkbox);
-    await user.click(submitButton);
+    fireEvent.change(emailInput, { target: { value: 'test@example.com' } });
+    fireEvent.change(displayNameInput, { target: { value: 'Test User' } });
+    fireEvent.change(passwordInput, { target: { value: 'Password123!' } });
+    fireEvent.change(confirmPasswordInput, { target: { value: 'Password123!' } });
+    fireEvent.click(checkbox);
+    fireEvent.click(submitButton);
 
-    expect(mockRegister).toHaveBeenCalledWith(
-      expect.objectContaining({
-        email: 'test@example.com',
-        displayName: 'Test User',
-        password: 'Password123!',
-        confirmPassword: 'Password123!',
-      })
-    );
+    await waitFor(() => {
+      expect(mockRegister).toHaveBeenCalledWith(
+        expect.objectContaining({
+          email: 'test@example.com',
+          displayName: 'Test User',
+          password: 'Password123!',
+          confirmPassword: 'Password123!',
+        })
+      );
+    });
   });
 
   it('should redirect to login page after successful registration with success message', async () => {
@@ -142,7 +142,6 @@ describe('RegisterPage Component', () => {
       isAuthenticated: false,
     });
 
-    const user = userEvent.setup();
     render(
       <BrowserRouter>
         <RegisterPage />
@@ -156,12 +155,12 @@ describe('RegisterPage Component', () => {
     const checkbox = screen.getByRole('checkbox') as HTMLInputElement;
     const submitButton = screen.getByTestId('register-submit');
 
-    await user.type(emailInput, 'test@example.com');
-    await user.type(displayNameInput, 'Test User');
-    await user.type(passwordInput, 'Password123!');
-    await user.type(confirmPasswordInput, 'Password123!');
-    await user.click(checkbox);
-    await user.click(submitButton);
+    fireEvent.change(emailInput, { target: { value: 'test@example.com' } });
+    fireEvent.change(displayNameInput, { target: { value: 'Test User' } });
+    fireEvent.change(passwordInput, { target: { value: 'Password123!' } });
+    fireEvent.change(confirmPasswordInput, { target: { value: 'Password123!' } });
+    fireEvent.click(checkbox);
+    fireEvent.click(submitButton);
 
     await waitFor(() => {
       expect(mockNavigate).toHaveBeenCalledWith('/login', {
@@ -257,5 +256,126 @@ describe('RegisterPage Component', () => {
     expect(passwordInput.disabled).toBe(true);
     expect(confirmPasswordInput.disabled).toBe(true);
     expect(submitButton.disabled).toBe(true);
+  });
+
+  it('redirects authenticated users to the requested path from location state', async () => {
+    (useAuth as any).mockReturnValue({
+      register: vi.fn(),
+      isLoading: false,
+      error: null,
+      isAuthenticated: true,
+    });
+
+    render(
+      <MemoryRouter
+        initialEntries={[{
+          pathname: '/register',
+          state: { from: { pathname: '/ideas/alpha' } },
+        }]}
+      >
+        <RegisterPage />
+      </MemoryRouter>
+    );
+
+    await waitFor(() => {
+      expect(mockNavigate).toHaveBeenCalledWith('/ideas/alpha', { replace: true });
+    });
+  });
+
+  it('redirects authenticated users to home when no previous location exists', async () => {
+    (useAuth as any).mockReturnValue({
+      register: vi.fn(),
+      isLoading: false,
+      error: null,
+      isAuthenticated: true,
+    });
+
+    render(
+      <MemoryRouter initialEntries={['/register']}>
+        <RegisterPage />
+      </MemoryRouter>
+    );
+
+    await waitFor(() => {
+      expect(mockNavigate).toHaveBeenCalledWith('/', { replace: true });
+    });
+  });
+
+  it('surface errors from the register action', async () => {
+    const consoleErrorSpy = vi.spyOn(console, 'error').mockImplementation(() => {});
+    const mockRegister = vi.fn().mockRejectedValue(new Error('Boom'));
+    (useAuth as any).mockReturnValue({
+      register: mockRegister,
+      isLoading: false,
+      error: null,
+      isAuthenticated: false,
+    });
+
+    render(
+      <BrowserRouter>
+        <RegisterPage />
+      </BrowserRouter>
+    );
+
+    const emailInput = screen.getByTestId('register-email-input');
+    const displayNameInput = screen.getByTestId('register-displayname-input');
+    const passwordInput = screen.getByTestId('register-password-input');
+    const confirmPasswordInput = screen.getByTestId('register-confirm-password-input');
+    const checkbox = screen.getByRole('checkbox');
+    const submitButton = screen.getByTestId('register-submit');
+
+    fireEvent.change(emailInput, { target: { value: 'test@example.com' } });
+    fireEvent.change(displayNameInput, { target: { value: 'Test User' } });
+    fireEvent.change(passwordInput, { target: { value: 'Password123!' } });
+    fireEvent.change(confirmPasswordInput, { target: { value: 'Password123!' } });
+    fireEvent.click(checkbox);
+    fireEvent.click(submitButton);
+
+    await waitFor(() => {
+      expect(screen.getByText('Boom')).toBeInTheDocument();
+    });
+
+    expect(consoleErrorSpy).toHaveBeenCalledWith('Registration error:', expect.any(Error));
+    consoleErrorSpy.mockRestore();
+  });
+
+  it('uses a fallback error message when register rejects with a non-error value', async () => {
+    const consoleErrorSpy = vi.spyOn(console, 'error').mockImplementation(() => {});
+    const mockRegister = vi.fn().mockRejectedValue('totally broken');
+    (useAuth as any).mockReturnValue({
+      register: mockRegister,
+      isLoading: false,
+      error: null,
+      isAuthenticated: false,
+    });
+
+    render(
+      <BrowserRouter>
+        <RegisterPage />
+      </BrowserRouter>
+    );
+
+    const emailInput = screen.getByTestId('register-email-input');
+    const displayNameInput = screen.getByTestId('register-displayname-input');
+    const passwordInput = screen.getByTestId('register-password-input');
+    const confirmPasswordInput = screen.getByTestId('register-confirm-password-input');
+    const checkbox = screen.getByRole('checkbox');
+    const submitButton = screen.getByTestId('register-submit');
+
+    fireEvent.change(emailInput, { target: { value: 'test@example.com' } });
+    fireEvent.change(displayNameInput, { target: { value: 'Test User' } });
+    fireEvent.change(passwordInput, { target: { value: 'Password123!' } });
+    fireEvent.change(confirmPasswordInput, { target: { value: 'Password123!' } });
+    fireEvent.click(checkbox);
+    fireEvent.click(submitButton);
+
+    await waitFor(() => {
+      expect(
+        screen.getByText('Registration failed. Please try again.')
+      ).toBeInTheDocument();
+    });
+
+    expect(consoleErrorSpy).toHaveBeenCalledWith('Registration error:', 'totally broken');
+    consoleErrorSpy.mockRestore();
   });
 });

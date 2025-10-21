@@ -4,6 +4,15 @@ import userEvent from '@testing-library/user-event';
 import { BrowserRouter } from 'react-router-dom';
 import HomePage from '@/pages/HomePage';
 import { useAuth, useIdeas, useActivity } from '@/hooks';
+
+const notificationServiceMocks = vi.hoisted(() => ({
+  error: vi.fn(),
+  warning: vi.fn(),
+}));
+
+vi.mock('@/services/NotificationService', () => ({
+  NotificationService: notificationServiceMocks,
+}));
 import '@testing-library/jest-dom';
 
 // Mock hooks
@@ -26,7 +35,9 @@ vi.mock('react-router-dom', async () => {
 describe('HomePage Component', () => {
   beforeEach(() => {
     vi.clearAllMocks();
-    
+    notificationServiceMocks.error.mockReset();
+    notificationServiceMocks.warning.mockReset();
+
     // Default mock values
     (useAuth as any).mockReturnValue({
       isAuthenticated: false,
@@ -181,7 +192,7 @@ describe('HomePage Component', () => {
     const mockIdeas = [
       { id: '1', title: 'Idea 1', status: 'Approved', commentCount: 5 },
       { id: '2', title: 'Idea 2', status: 'Approved', commentCount: 3 },
-      { id: '3', title: 'Idea 3', status: 'Pending', commentCount: 2 },
+      { id: '3', title: 'Idea 3', status: 'Pending' },
     ];
 
     (useIdeas as any).mockReturnValue({
@@ -200,11 +211,11 @@ describe('HomePage Component', () => {
     // Stats should show:
     // Total Ideas: 3
     // Approved Ideas: 2
-    // Active Discussions: 10 (5+3+2)
+    // Active Discussions: 8 (5+3+0 fallback)
     await waitFor(() => {
       expect(screen.getByText('3')).toBeInTheDocument();
       expect(screen.getByText('2')).toBeInTheDocument();
-      expect(screen.getByText('10')).toBeInTheDocument();
+      expect(screen.getByText('8')).toBeInTheDocument();
     });
   });
 
@@ -304,14 +315,14 @@ describe('HomePage Component', () => {
     expect(ideaLinks.length).toBeGreaterThan(0);
   });
 
-  it('should display featured/trending section when ideas are loaded', () => {
+  it('should display featured/trending section when ideas are loaded', async () => {
     const mockIdeas = [
       {
         id: '1',
         title: 'Trending Idea',
-        description: 'This is trending',
+        description: undefined,
         status: 'Approved',
-        commentCount: 15,
+        commentCount: undefined,
       },
     ];
 
@@ -328,8 +339,18 @@ describe('HomePage Component', () => {
       </BrowserRouter>
     );
 
-    // Component should render without errors when ideas are loaded
-    expect(screen.getByText(/collaborative innovation platform/i)).toBeInTheDocument();
+    await waitFor(() => {
+      expect(screen.getByText(/collaborative innovation platform/i)).toBeInTheDocument();
+    });
+
+    const fallbackDescription = await screen.findAllByText((_, node) =>
+      node?.textContent?.includes('No description') ?? false
+    );
+    expect(fallbackDescription.length).toBeGreaterThan(0);
+
+    await waitFor(() => {
+      expect(screen.getByText('0 comments')).toBeInTheDocument();
+    });
   });
 
   it('should maintain logout button styling as outline variant', () => {
@@ -377,5 +398,72 @@ describe('HomePage Component', () => {
     // Should have calculated stats from the mock idea
     expect(screen.getByText(/Ideas Submitted/i)).toBeInTheDocument();
     expect(screen.getByText(/Active Discussions/i)).toBeInTheDocument();
+  });
+
+  it('should warn guests and redirect them when submitting an idea', async () => {
+    const user = userEvent.setup();
+    const mockGetTrendingIdeas = vi.fn().mockResolvedValue(undefined);
+    (useIdeas as any).mockReturnValue({
+      ideas: [],
+      getTrendingIdeas: mockGetTrendingIdeas,
+      loading: false,
+      error: null,
+    });
+
+    render(
+      <BrowserRouter>
+        <HomePage />
+      </BrowserRouter>
+    );
+
+    const submitFirstIdea = await screen.findByRole('button', {
+      name: /submit your first idea/i,
+    });
+    await user.click(submitFirstIdea);
+
+    expect(notificationServiceMocks.warning).toHaveBeenCalledWith('Login required');
+    expect(mockNavigate).toHaveBeenCalledWith('/login');
+  });
+
+  it('should route authenticated users to the create idea page', async () => {
+    const user = userEvent.setup();
+    (useAuth as any).mockReturnValue({
+      isAuthenticated: true,
+      logout: vi.fn(),
+      user: { id: '123', email: 'test@example.com' },
+    });
+
+    render(
+      <BrowserRouter>
+        <HomePage />
+      </BrowserRouter>
+    );
+
+    const submitFirstIdea = await screen.findByRole('button', {
+      name: /submit your first idea/i,
+    });
+    await user.click(submitFirstIdea);
+
+    expect(notificationServiceMocks.warning).not.toHaveBeenCalled();
+    expect(mockNavigate).toHaveBeenCalledWith('/ideas/create');
+  });
+
+  it('should surface errors when trending ideas fail to load', async () => {
+    (useIdeas as any).mockReturnValue({
+      ideas: [],
+      getTrendingIdeas: vi.fn().mockRejectedValue('boom'),
+      loading: false,
+      error: null,
+    });
+
+    render(
+      <BrowserRouter>
+        <HomePage />
+      </BrowserRouter>
+    );
+
+    await waitFor(() => {
+      expect(notificationServiceMocks.error).toHaveBeenCalledWith('Failed to load ideas');
+    });
   });
 });
