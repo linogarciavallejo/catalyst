@@ -1,5 +1,3 @@
-using System.Threading.Tasks;
-
 namespace Catalyst.Application.Security;
 
 /// <summary>
