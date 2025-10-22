@@ -308,7 +308,7 @@ public class DatabaseAuthenticationServiceTests
         // Assert
         result.IsSuccess.Should().BeFalse();
         result.Message.Should().Contain("already exists");
-        _ = _userRepository.DidNotReceive().AddAsync(Arg.Any<User>());
+        _userRepository.DidNotReceive().AddAsync(Arg.Any<User>());
         _tokenService.DidNotReceive().GenerateToken(Arg.Any<string>(), Arg.Any<string>(), Arg.Any<string>());
     }
 
@@ -338,7 +338,7 @@ public class DatabaseAuthenticationServiceTests
         persistedUser.Name.Should().Be("New User");
         persistedUser.PasswordHash.Should().NotBe(ValidPassword);
         Convert.FromBase64String(persistedUser.PasswordHash).Length.Should().Be(36);
-        _ = _userRepository.Received(1).AddAsync(Arg.Any<User>());
+        _userRepository.Received(1).AddAsync(Arg.Any<User>());
         _tokenService.Received(1).GenerateToken(persistedUser.Id.Value, persistedUser.Email.Value, persistedUser.Name);
     }
 
