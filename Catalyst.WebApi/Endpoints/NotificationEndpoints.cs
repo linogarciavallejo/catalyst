@@ -88,7 +88,7 @@ public static class NotificationEndpoints
             Type = notification.Type.ToString(),
             Title = notification.Title,
             Message = notification.Message,
-            RelatedIdeaId = notification.RelatedIdeaId.Value,
+            RelatedIdeaId = notification.RelatedIdeaId?.Value,
             IsRead = notification.IsRead,
             CreatedAt = notification.CreatedAt
         };
