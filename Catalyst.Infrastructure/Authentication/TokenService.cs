@@ -92,7 +92,11 @@ public class TokenService : ITokenService
 
         try
         {
-            var tokenHandler = new JwtSecurityTokenHandler();
+            var tokenHandler = new JwtSecurityTokenHandler
+            {
+                // Avoid claim type remapping so callers can access "oid" directly.
+                MapInboundClaims = false
+            };
             var principal = tokenHandler.ValidateToken(token, _tokenValidationParameters, out SecurityToken validatedToken);
             return principal;
         }

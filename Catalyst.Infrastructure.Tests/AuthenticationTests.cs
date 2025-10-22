@@ -1,5 +1,7 @@
+using System.IdentityModel.Tokens.Jwt;
 using System.Reflection;
 using System.Security.Claims;
+using System.Text;
 using Catalyst.Application.Interfaces;
 using Catalyst.Application.Security;
 using Catalyst.Domain.Entities;
@@ -10,6 +12,7 @@ using Catalyst.Infrastructure.Services;
 using FluentAssertions;
 using Microsoft.AspNetCore.Http;
 using Microsoft.Extensions.Options;
+using Microsoft.IdentityModel.Tokens;
 using NSubstitute;
 
 namespace Catalyst.Infrastructure.Tests;
@@ -143,15 +146,25 @@ public class TokenServiceTests
     public void ValidateToken_WithExpiredToken_ReturnsNull()
     {
         // Arrange
-        var expiredOptions = Options.Create(new JwtSettings
+        var tokenService = new TokenService(_jwtOptions);
+
+        var handler = new JwtSecurityTokenHandler { MapInboundClaims = false };
+        var signingKey = new SymmetricSecurityKey(Encoding.UTF8.GetBytes(SecretKey));
+        var expiredToken = handler.CreateToken(new SecurityTokenDescriptor
         {
-            SecretKey = SecretKey,
+            Subject = new ClaimsIdentity(new[]
+            {
+                new Claim("oid", "507f1f77bcf86cd799439011"),
+                new Claim(ClaimTypes.Email, "test@example.com"),
+                new Claim(ClaimTypes.Name, "Expired User"),
+                new Claim("email", "test@example.com")
+            }),
+            Expires = DateTime.UtcNow.AddMinutes(-5),
             Issuer = Issuer,
             Audience = Audience,
-            ExpirationMinutes = -10
+            SigningCredentials = new SigningCredentials(signingKey, SecurityAlgorithms.HmacSha256)
         });
-        var tokenService = new TokenService(expiredOptions);
-        var token = tokenService.GenerateToken("507f1f77bcf86cd799439011", "test@example.com", "Expired User");
+        var token = handler.WriteToken(expiredToken);
 
         // Act
         var principal = tokenService.ValidateToken(token);
